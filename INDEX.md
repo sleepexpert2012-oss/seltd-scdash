@@ -140,6 +140,15 @@ nạp động). Bản Excel nạp vào lưu ở `localStorage` qua `src/data/mas
 Shopee được bơm tồn để chạy chiến dịch → tồn API cao hơn thực tế.
 `metrics.js`: `STOCK_RAW_BY_SKU` (nguyên bản) → `STOCK_BY_SKU` = tồn Shopee − `PHANTOM`.
 Mọi tính toán phía sau đọc `STOCK_BY_SKU` nên tự động chạy trên tồn thật.
-Khai báo ở **Tồn kho & Đặt hàng → tab ⚗ Tồn ảo** (nhập/kết xuất Excel), lưu
-`localStorage` key `seltd_phantom`. SKU nhiều kho: trừ dần từ kho nhiều nhất.
-Khai vượt: tồn về 0, không cho âm, có cảnh báo.
+Khai báo ở **Tồn kho & Đặt hàng → tab ⚗ Tồn ảo**. SKU nhiều kho: trừ dần từ kho
+nhiều nhất. Khai vượt: tồn về 0, không cho âm, có cảnh báo.
+
+**Đồng bộ đám mây** (Supabase, `scripts/shopee/schema_phantom.sql`):
+bảng `public.phantom_stock` + log bất biến `public.phantom_stock_log`,
+ghi qua hàm `set_phantom()`. Client: `src/lib/cloud.js` (fetch thuần).
+`main.jsx` nạp số từ đám mây TRƯỚC khi mount React vì metrics tính tồn lúc khởi tạo.
+Mất mạng: dùng cache, rồi tới `src/data/phantom.json`; bấm Lưu sẽ báo lỗi chứ
+không ghi ngầm. Có Lịch sử thay đổi + nút Khôi phục.
+
+⚠️ Khoá gọi đám mây là công khai (repo public). anon chỉ đọc/ghi được bảng tồn ảo,
+KHÔNG chạm được schema `shopee`. Muốn chặn hẳn thì cần Supabase Auth.
