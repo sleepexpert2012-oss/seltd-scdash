@@ -340,7 +340,8 @@ export const SKU_DEMAND = (() => {
 })()
 
 /* Tồn theo SKU và theo kho */
-export const STOCK_BY_SKU = (() => {
+/* Tồn NGUYÊN BẢN theo Shopee — chưa trừ phần bơm ảo */
+export const STOCK_RAW_BY_SKU = (() => {
   const out = {}
   for (const r of stock.rows) {
     const t = out[r.sku] || { total: 0, byWh: {} }
@@ -349,6 +350,87 @@ export const STOCK_BY_SKU = (() => {
     out[r.sku] = t
   }
   return out
+})()
+
+/* ============================================================
+   TỒN ẢO
+   Trên Shopee có bơm thêm số lượng tồn để chạy chiến dịch, nên con số API trả
+   về là tồn ĐÃ BƠM. Lấy nguyên số đó đi lập kế hoạch thì hệ thống tưởng còn
+   nhiều hàng và sẽ không đề xuất đặt thêm — đúng lúc thực tế đang cạn.
+   Người dùng khai số đã bơm theo SKU, ở đây trừ ra ngay tại nguồn để MỌI
+   phép tính phía sau (ROP, mức đặt tới, số tháng bán còn, giá vốn tồn, tồn chết)
+   đều chạy trên tồn thật. Lưu tại máy như lead time.
+   ============================================================ */
+const PH_KEY = 'seltd_phantom'
+const loadPh = () => {
+  try {
+    const o = JSON.parse(localStorage.getItem(PH_KEY) || '{}')
+    const out = {}
+    for (const [k, v] of Object.entries(o)) {
+      const n = Math.round(Number(v))
+      if (Number.isFinite(n) && n > 0) out[k] = n
+    }
+    return out
+  } catch { return {} }
+}
+export let PHANTOM = loadPh()
+
+export function setPhantomBulk(map) {
+  const out = {}
+  for (const [k, v] of Object.entries(map || {})) {
+    const n = Math.round(Number(v))
+    if (Number.isFinite(n) && n > 0) out[k] = n
+  }
+  PHANTOM = out
+  try { localStorage.setItem(PH_KEY, JSON.stringify(out)) } catch { /* bỏ qua */ }
+}
+export function resetPhantom() {
+  PHANTOM = {}
+  try { localStorage.removeItem(PH_KEY) } catch { /* bỏ qua */ }
+}
+
+/* Tồn dùng cho MỌI tính toán = tồn Shopee − số đã bơm ảo.
+   Trừ dần từ kho đang nhiều nhất: không biết được kho nào bị bơm, mà trừ theo
+   tỷ lệ thì ra số lẻ nên chọn cách này và ghi rõ trong tài liệu. */
+export const STOCK_BY_SKU = (() => {
+  const out = {}
+  for (const [sku, t] of Object.entries(STOCK_RAW_BY_SKU)) {
+    const ph = PHANTOM[sku] || 0
+    if (!ph) {
+      out[sku] = { total: t.total, byWh: { ...t.byWh }, raw: t.total, phantom: 0, over: 0 }
+      continue
+    }
+    let left = ph
+    const byWh = {}
+    for (const [wh, q] of Object.entries(t.byWh).sort((a, b) => b[1] - a[1])) {
+      const cut = Math.min(q, left)
+      byWh[wh] = q - cut
+      left -= cut
+    }
+    out[sku] = {
+      total: Math.max(0, t.total - ph), byWh,
+      raw: t.total, phantom: ph,
+      over: left,   // khai nhiều hơn tồn thực có -> cần soát lại
+    }
+  }
+  /* SKU khai ảo nhưng Shopee không còn tồn: vẫn giữ để màn Tồn ảo cảnh báo */
+  for (const [sku, ph] of Object.entries(PHANTOM)) {
+    if (!out[sku]) out[sku] = { total: 0, byWh: {}, raw: 0, phantom: ph, over: ph }
+  }
+  return out
+})()
+
+export const PHANTOM_SUMMARY = (() => {
+  const skus = Object.keys(PHANTOM)
+  let declared = 0, cut = 0, over = 0
+  for (const sku of skus) {
+    const s = STOCK_BY_SKU[sku]
+    declared += PHANTOM[sku]
+    cut += Math.min(PHANTOM[sku], s?.raw || 0)
+    over += s?.over || 0
+  }
+  const raw = Object.values(STOCK_RAW_BY_SKU).reduce((a, s) => a + s.total, 0)
+  return { count: skus.length, declared, cut, over, raw, real: raw - cut, on: skus.length > 0 }
 })()
 
 /* Lead time mặc định theo nhà cung cấp; người dùng chỉnh được và lưu tại máy */

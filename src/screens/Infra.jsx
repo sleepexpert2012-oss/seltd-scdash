@@ -239,6 +239,12 @@ function FlowTab({ d }) {
               Nếu tính vào thì sức bán 3 tháng bị hụt và mọi điểm đặt hàng sẽ sai thấp.
             </li>
             <li>
+              <b>Tồn kho Shopee là tồn ĐÃ BƠM ảo để chạy chiến dịch.</b> Số API trả về cao hơn
+              thực tế. Khai số đã bơm ở <b>Tồn kho &amp; Đặt hàng → tab Tồn ảo</b> thì hệ thống
+              trừ ra tại nguồn, mọi phép tính tồn kho và kế hoạch đặt hàng chạy trên tồn thật.
+              Số khai lưu tại từng máy.
+            </li>
+            <li>
               <b>Mật khẩu đăng nhập là khoá mềm.</b> Nó nằm trong mã trang nên chỉ chống mở
               nhầm, không phải bảo mật. Repo đang public.
             </li>

@@ -171,3 +171,88 @@
 .m2-tablewrap tr.sub td:first-child{padding-left:22px;border-left:3px solid var(--blue2)}
 .m2-tablewrap tr.child td:first-child{padding-left:38px}
 .m2-head .tools{flex-wrap:wrap;gap:8px}
+
+/* ---- Tồn ảo trên Shopee ---- */
+.ph-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: #FDF8EE; border: 1px solid #F0DDBB; border-left: 3px solid var(--amber);
+  border-radius: var(--r-panel); padding: 9px 13px; margin-bottom: 12px;
+}
+.ph-banner > b {
+  font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
+  color: #7A4A05; white-space: nowrap;
+}
+.ph-banner > span { font-size: 11.5px; line-height: 1.55; color: #7A4A05; flex: 1 1 320px; }
+.ph-banner > span b { color: #5C3703; }
+.ph-banner em { font-style: normal; color: var(--bad); font-weight: 550; }
+.ph-banner button { flex: none; }
+
+.ph-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 11px; }
+@media (max-width: 860px) { .ph-kpis { grid-template-columns: repeat(2, 1fr); } }
+.ph-kpis > div {
+  border: 1px solid var(--line); border-top: 2px solid var(--blue2);
+  border-radius: var(--r-kpi); background: #fff; padding: 8px 11px 9px;
+}
+.ph-kpis > div.hi { border-top-color: var(--good); background: #FAFDFB; }
+.ph-kpis span {
+  display: block; font-size: 9.5px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.ph-kpis strong { display: block; font-size: 20px; font-weight: 650; color: var(--ink); line-height: 1.2; }
+.ph-kpis > div.hi strong { color: var(--good); }
+.ph-kpis small { font-size: 10px; color: var(--muted); }
+
+.ph-warn {
+  margin: 0 0 10px; background: #FBEAE8; border: 1px solid #F0C9C4;
+  border-radius: var(--r-control); padding: 7px 11px;
+  font-size: 11.5px; line-height: 1.55; color: #7A2C24;
+}
+.ph-warn b { color: var(--bad); }
+.ph-msg {
+  margin: 0 0 10px; background: #EEF0FA; border: 1px solid var(--line);
+  border-radius: var(--r-control); padding: 7px 11px;
+  font-size: 11.5px; line-height: 1.55; color: var(--ink-2);
+}
+
+.ph-bar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
+.ph-bar .spacer { flex: 1 1 auto; }
+.ph-q {
+  border: 1px solid var(--line); border-radius: var(--r-control);
+  padding: 6px 10px; font-size: 11.5px; color: var(--ink); min-width: 210px;
+}
+.ph-count { font-size: 11px; color: var(--muted); }
+
+.ph-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.ph-table thead th {
+  position: sticky; top: 0; z-index: 2; background: var(--navy); color: #fff;
+  font-size: 9.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  padding: 7px 9px; text-align: left; white-space: nowrap;
+}
+.ph-table th.num, .ph-table td.num { text-align: right; }
+.ph-table tbody td {
+  padding: 4px 9px; border-bottom: 1px solid var(--line); color: var(--ink-2); white-space: nowrap;
+}
+.ph-table tbody tr:hover td { background: #F7F8FD; }
+.ph-table tr.has td { background: #FDFAF3; }
+.ph-table tr.has:hover td { background: #FBF5E8; }
+.ph-table tr.over td { background: #FDF3F2; }
+.ph-table td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+.ph-table td.nm {
+  max-width: 340px; overflow: hidden; text-overflow: ellipsis;
+  color: var(--ink); font-weight: 550;
+}
+.ph-table td.b { font-weight: 650; color: var(--ink); }
+.ph-table td.bad { color: var(--bad); }
+.ph-table td em { font-style: normal; font-size: 10px; color: var(--bad); font-weight: 400; }
+.ph-table td.empty { text-align: center; color: var(--ink-3); padding: 18px; }
+.ph-table input {
+  width: 88px; text-align: right; border: 1px solid var(--line);
+  border-radius: 4px; padding: 4px 7px; font-size: 11.5px; color: var(--ink);
+}
+.ph-table input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(53,62,153,.12); }
+.ph-table input.bad { border-color: #E2A9A2; background: #FEF7F6; }
+
+.ph-note {
+  margin: 10px 0 0; font-size: 10.5px; line-height: 1.6; color: var(--muted);
+  border-top: 1px dashed var(--line); padding-top: 8px;
+}

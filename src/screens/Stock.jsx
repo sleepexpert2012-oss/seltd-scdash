@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useRef, useState } from 'react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -7,7 +7,9 @@ import master from '../data/master'
 import {
   stockPlan, STATUS, WAREHOUSES, STOCK_AS_OF, STOCK_AS_OF_DATE, STOCK_IS_MOCK, Z_SERVICE, VMIN,
   LAST_RECEIPT, setLeadTime, resetLeadTime, LT_OVERRIDE,
+  STOCK_RAW_BY_SKU, PHANTOM, PHANTOM_SUMMARY, setPhantomBulk, resetPhantom, SKU_MAP,
 } from '../lib/metrics'
+import { exportRowsXlsx } from '../lib/masterFile'
 import { trieu, num, pct } from '../lib/format'
 import { useDrill } from '../app/drill'
 import './stock.css'
@@ -18,6 +20,7 @@ const TABS = [
   ['detail', '≡', 'Chi tiết loại hình & SKU'],
   ['age', '◷', 'Tuổi tồn kho'],
   ['action', '⚑', 'Tổng hợp hành động'],
+  ['phantom', '⚗', 'Tồn ảo trên Shopee'],
   ['setting', '⚙', 'Tham số tính toán'],
 ]
 
@@ -134,6 +137,21 @@ export default function Stock({ filters, setFilters }) {
         </label>
         <span className="hint">— áp dụng cho toàn bộ trang: KPI, biểu đồ, kế hoạch đặt, bảng chi tiết</span>
       </div>
+
+      {PHANTOM_SUMMARY.on && (
+        <div className="ph-banner">
+          <b>Đang trừ tồn ảo</b>
+          <span>
+            {num(PHANTOM_SUMMARY.count)} SKU khai bơm {num(PHANTOM_SUMMARY.declared)} unit ·
+            tồn Shopee {num(PHANTOM_SUMMARY.raw)} → <b>tồn thật {num(PHANTOM_SUMMARY.real)}</b>.
+            Mọi con số trên trang này, kế hoạch đặt hàng và màn Forecast đều đã tính trên tồn thật.
+            {PHANTOM_SUMMARY.over > 0 && (
+              <em> ⚠ {num(PHANTOM_SUMMARY.over)} unit khai nhiều hơn tồn Shopee đang có — cần soát lại.</em>
+            )}
+          </span>
+          <button className="xls-btn" onClick={() => setTab('phantom')}>Xem &amp; sửa</button>
+        </div>
+      )}
 
       <div className="m2-kpis" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>
         <div><span>Tồn TỔNG</span><strong>{num(d.ton)}</strong><small>unit · {d.rows.length} SKU</small></div>
@@ -268,6 +286,7 @@ export default function Stock({ filters, setFilters }) {
         </div>
       )}
 
+      {tab === 'phantom' && <PhantomPanel />}
       {tab === 'setting' && <SettingPanel onChange={() => setTick(t => t + 1)} rows={d.rows} />}
     </>
   )
@@ -811,5 +830,239 @@ function SettingPanel({ onChange, rows }) {
         </ul>
       </div>
     </div>
+  )
+}
+
+/* ============================================================
+   TỒN ẢO TRÊN SHOPEE
+   Shopee được bơm thêm tồn để chạy chiến dịch nên số API trả về cao hơn thực tế.
+   Khai số đã bơm ở đây, hệ thống trừ ra tại nguồn nên toàn bộ ROP, mức đặt tới,
+   số tháng bán còn, giá vốn tồn và tồn chết đều tính trên tồn thật.
+   ============================================================ */
+function PhantomPanel() {
+  const [draft, setDraft] = useState(() => {
+    const o = {}
+    for (const [k, v] of Object.entries(PHANTOM)) o[k] = String(v)
+    return o
+  })
+  const [view, setView] = useState('stock')   // stock | declared | all
+  const [q, setQ] = useState('')
+  const [msg, setMsg] = useState('')
+  const fileRef = useRef(null)
+
+  const all = useMemo(() => {
+    const skus = new Set([...Object.keys(STOCK_RAW_BY_SKU), ...Object.keys(PHANTOM)])
+    return [...skus].map(sku => {
+      const s = SKU_MAP[sku] || {}
+      return {
+        sku,
+        name: s.name || '(không có trong Master Data)',
+        nganh: s.nganh || '—',
+        className: s.className || '—',
+        raw: STOCK_RAW_BY_SKU[sku]?.total || 0,
+      }
+    }).sort((a, b) => b.raw - a.raw || a.sku.localeCompare(b.sku))
+  }, [])
+
+  const rows = useMemo(() => {
+    const kw = q.trim().toLowerCase()
+    return all.filter(r => {
+      if (view === 'stock' && r.raw <= 0 && !draft[r.sku]) return false
+      if (view === 'declared' && !(+draft[r.sku] > 0)) return false
+      if (kw && !(r.sku.toLowerCase().includes(kw) || r.name.toLowerCase().includes(kw))) return false
+      return true
+    })
+  }, [all, view, q, draft])
+
+  /* xem trước tác động ngay khi gõ, chưa cần lưu */
+  const prev = useMemo(() => {
+    let declared = 0, cut = 0, over = 0, n = 0
+    for (const r of all) {
+      const ph = Math.max(0, Math.round(+draft[r.sku] || 0))
+      if (!ph) continue
+      n++; declared += ph
+      cut += Math.min(ph, r.raw)
+      over += Math.max(0, ph - r.raw)
+    }
+    const raw = all.reduce((a, r) => a + r.raw, 0)
+    return { n, declared, cut, over, raw, real: raw - cut }
+  }, [all, draft])
+
+  const dirty = useMemo(() => {
+    const cur = Object.fromEntries(Object.entries(PHANTOM).map(([k, v]) => [k, String(v)]))
+    const clean = Object.fromEntries(
+      Object.entries(draft).filter(([, v]) => +v > 0).map(([k, v]) => [k, String(Math.round(+v))]))
+    return JSON.stringify(cur) !== JSON.stringify(clean)
+  }, [draft])
+
+  const set = (sku, v) => setDraft(d => ({ ...d, [sku]: v.replace(/[^\d]/g, '') }))
+
+  const apply = () => {
+    setPhantomBulk(Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, +v || 0])))
+    location.reload()
+  }
+  const clearAll = () => { resetPhantom(); location.reload() }
+
+  async function onPick(e) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    setMsg('')
+    try {
+      const XLSX = await import('xlsx')
+      const wb = XLSX.read(await f.arrayBuffer(), { cellDates: false })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: false })
+      /* Nhận file linh hoạt: dò cột SKU và cột số lượng theo tên tiêu đề.
+         Nếu không có tiêu đề thì lấy cột 1 = SKU, cột 2 = số lượng. */
+      const norm = s => String(s ?? '').trim().toLowerCase()
+      let hi = -1, ci = 0, cq = 1
+      for (let i = 0; i < Math.min(grid.length, 10); i++) {
+        const r = (grid[i] || []).map(norm)
+        const a = r.findIndex(x => x === 'sku' || x === 'mã sku' || x === 'ma sku')
+        if (a >= 0) {
+          const b = r.findIndex(x => x.includes('ảo') || x.includes('ao') || x.includes('bơm')
+            || x.includes('bom') || x.includes('qty') || x.includes('số lượng') || x.includes('so luong'))
+          hi = i; ci = a; cq = b >= 0 ? b : a + 1
+          break
+        }
+      }
+      const body = hi >= 0 ? grid.slice(hi + 1) : grid
+      const next = {}
+      let bad = 0, unknown = []
+      for (const r of body) {
+        const sku = String(r?.[ci] ?? '').trim()
+        if (!sku) continue
+        const n = Math.round(Number(String(r?.[cq] ?? '').replace(/[^\d.-]/g, '')))
+        if (!Number.isFinite(n) || n <= 0) { bad++; continue }
+        if (!SKU_MAP[sku] && !STOCK_RAW_BY_SKU[sku]) unknown.push(sku)
+        next[sku] = n
+      }
+      if (!Object.keys(next).length) throw new Error('Không đọc được dòng nào có SKU và số lượng > 0')
+      setDraft(Object.fromEntries(Object.entries(next).map(([k, v]) => [k, String(v)])))
+      setView('declared')
+      setMsg(`Đã nạp ${Object.keys(next).length} SKU từ ${f.name}`
+        + (bad ? ` · bỏ qua ${bad} dòng không có số hợp lệ` : '')
+        + (unknown.length ? ` · ⚠ ${unknown.length} SKU không có trong Master Data lẫn tồn Shopee: ${unknown.slice(0, 6).join(', ')}` : '')
+        + '. Kiểm lại rồi bấm Lưu & áp dụng.')
+    } catch (err) {
+      setMsg('Lỗi đọc file: ' + (err.message || err))
+    }
+  }
+
+  const K = [
+    ['Tồn Shopee trả về', prev.raw, 'unit · số đã bơm'],
+    ['Khai bơm ảo', prev.declared, `unit · ${prev.n} SKU`],
+    ['Trừ được', prev.cut, 'unit'],
+    ['Tồn thật dùng để tính', prev.real, 'unit'],
+  ]
+
+  return (
+    <>
+      <div className="m2-panel">
+        <div className="m2-head">
+          <div>
+            <h3>⚗ Tồn ảo trên Shopee</h3>
+            <p>
+              Trên Shopee có bơm thêm số lượng tồn để chạy chiến dịch, nên con số API trả về
+              là tồn <b>đã bơm</b>. Khai số đã bơm theo SKU ở đây, hệ thống trừ ra ngay tại
+              nguồn — <b>ROP, mức đặt tới, số tháng bán còn, giá vốn tồn và phân loại tồn chết
+              đều tính lại trên tồn thật</b>, kể cả ở màn Tổng quan và Forecast.
+            </p>
+          </div>
+          <div className="tools">
+            <input ref={fileRef} type="file" accept=".xlsx,.xlsm,.xls,.csv" hidden onChange={onPick} />
+            <button className="xls-btn" onClick={() => fileRef.current?.click()}>⬆ Nhập Excel</button>
+            <button className="xls-btn" onClick={() => exportRowsXlsx('Ton ao theo SKU.xlsx', {
+              'Ton ao': all.map(r => ({
+                SKU: r.sku, 'Tên sản phẩm': r.name, 'Ngành hàng': r.nganh,
+                'Tồn Shopee': r.raw,
+                'Số lượng ảo': Math.round(+draft[r.sku] || 0),
+                'Tồn thật': Math.max(0, r.raw - Math.round(+draft[r.sku] || 0)),
+              })),
+            })}>⬇ Kết xuất Excel</button>
+          </div>
+        </div>
+
+        <div className="ph-kpis">
+          {K.map(([k, v, u], i) => (
+            <div key={k} className={i === 3 ? 'hi' : ''}>
+              <span>{k}</span><strong>{num(v)}</strong><small>{u}</small>
+            </div>
+          ))}
+        </div>
+
+        {prev.over > 0 && (
+          <p className="ph-warn">
+            ⚠ Có <b>{num(prev.over)} unit</b> khai bơm nhiều hơn tồn Shopee đang có
+            (ở {all.filter(r => Math.round(+draft[r.sku] || 0) > r.raw).length} SKU).
+            Phần vượt không trừ được nên tồn thật của các SKU đó về 0 — kiểm lại số khai
+            hoặc kéo lại tồn mới.
+          </p>
+        )}
+        {msg && <p className="ph-msg">{msg}</p>}
+
+        <div className="ph-bar">
+          <div className="group-ctrl">
+            {[['stock', 'Có tồn'], ['declared', 'Đã khai'], ['all', 'Tất cả']].map(([k, l]) => (
+              <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>
+            ))}
+          </div>
+          <input className="ph-q" value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Tìm SKU hoặc tên sản phẩm..." />
+          <span className="ph-count">{rows.length} SKU</span>
+          <span className="spacer" />
+          <button className="btn-primary" disabled={!dirty} onClick={apply}>
+            {dirty ? 'Lưu & áp dụng' : 'Đã lưu'}
+          </button>
+          <button className="xls-btn" disabled={!PHANTOM_SUMMARY.on} onClick={clearAll}>
+            Xoá hết khai báo
+          </button>
+        </div>
+
+        <div className="m2-tablewrap tall">
+          <table className="ph-table">
+            <thead>
+              <tr>
+                <th>SKU</th><th>Sản phẩm</th><th>Ngành</th>
+                <th className="num">Tồn Shopee</th>
+                <th className="num">Số lượng ảo đã bơm</th>
+                <th className="num">Tồn thật</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const ph = Math.round(+draft[r.sku] || 0)
+                const real = Math.max(0, r.raw - ph)
+                const over = ph > r.raw
+                return (
+                  <tr key={r.sku} className={over ? 'over' : ph ? 'has' : ''}>
+                    <td className="mono">{r.sku}</td>
+                    <td className="nm" title={r.name}>{r.name}</td>
+                    <td>{r.nganh}</td>
+                    <td className="num">{num(r.raw)}</td>
+                    <td className="num">
+                      <input value={draft[r.sku] ?? ''} onChange={e => set(r.sku, e.target.value)}
+                        inputMode="numeric" placeholder="0" className={over ? 'bad' : ''} />
+                    </td>
+                    <td className={`num b ${over ? 'bad' : ''}`}>
+                      {num(real)}{over && <em> (khai vượt {num(ph - r.raw)})</em>}
+                    </td>
+                  </tr>
+                )
+              })}
+              {!rows.length && <tr><td colSpan={6} className="empty">Không có SKU nào khớp</td></tr>}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="ph-note">
+          Số khai lưu tại máy này (giống lead time), không đẩy lên server — nên mỗi người
+          dùng tự khai. Cần cả tổ chức dùng chung thì kết xuất Excel rồi nhập lại ở máy khác.
+          Khi một SKU nằm ở nhiều kho, phần ảo được trừ dần từ kho đang nhiều nhất — vì API
+          không cho biết kho nào bị bơm.
+        </p>
+      </div>
+    </>
   )
 }
