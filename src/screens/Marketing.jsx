@@ -549,6 +549,12 @@ export default function Marketing({ filters, setFilters }) {
    Các tab cấp dưới chỉ hiển thị biểu đồ của đúng cấp đó, không lặp lại. */
 /* Chú giải dùng chung: mọi biểu đồ có từ 2 chỉ số trở lên đều phải có nhãn,
    và với biểu đồ 2 trục thì nhãn ghi luôn chỉ số đó đọc ở trục nào. */
+/* Kiểu đường mềm, thống nhất với màn Tổng quan. Dùng 'monotone' để không tạo
+   đỉnh/đáy ảo. Trên 14 mốc thì bỏ điểm cố định, chỉ hiện khi trỏ vào. */
+const SOFT = { type: 'monotone', strokeLinecap: 'round', strokeLinejoin: 'round' }
+const dotOf = (c, n) => (n > 14 ? false : { r: 3.2, fill: '#fff', stroke: c, strokeWidth: 2 })
+const actOf = c => ({ r: 5.5, fill: '#fff', stroke: c, strokeWidth: 2.5 })
+
 const LEG = {
   verticalAlign: 'top', align: 'left', height: 26, iconSize: 10,
   wrapperStyle: { fontSize: 10.5, color: '#6E739B', paddingLeft: 26, paddingBottom: 2, lineHeight: '15px' },
@@ -598,9 +604,9 @@ function OverviewTab({ kpi, funnel, series }) {
               <Legend {...LEG} height={42} />
               <Bar yAxisId="l" dataKey="ads" name="Chi phí chiến dịch SP · tr (trái)" stackId="a" fill={C.ads} barSize={26} />
               <Bar yAxisId="l" dataKey="adsKhac" name="Chi phí ads khác · tr (trái)" stackId="a" fill={C.adsOther} barSize={26} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="r" type="monotone" dataKey="roasS" name="ROAS Shopee (phải)" stroke={C.roasS} strokeWidth={1.6} strokeDasharray="4 3" dot={{ r: 2 }} />
-              <Line yAxisId="r" type="monotone" dataKey="roasR" name="ROAS thật (phải)" stroke={C.roasR} strokeWidth={2.4} dot={{ r: 3 }} />
-              <Line yAxisId="r" type="monotone" dataKey="beRoasPlot" name="ROAS hoà vốn (phải)" stroke={C.be} strokeWidth={1.4} strokeDasharray="2 3" dot={false} />
+              <Line yAxisId="r" {...SOFT} dataKey="roasS" name="ROAS Shopee (phải)" stroke={C.roasS} strokeWidth={1.8} strokeDasharray="5 4" dot={false} activeDot={actOf(C.roasS)} />
+              <Line yAxisId="r" {...SOFT} dataKey="roasR" name="ROAS thật (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, series.length)} activeDot={actOf(C.roasR)} />
+              <Line yAxisId="r" {...SOFT} dataKey="beRoasPlot" name="ROAS hoà vốn (phải)" stroke={C.be} strokeWidth={1.5} strokeDasharray="3 4" dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
           <p className="mk-note">
@@ -632,7 +638,7 @@ function OverviewTab({ kpi, funnel, series }) {
               ]} />} />
               <Legend {...LEG} />
               <Bar yAxisId="l" dataKey="cpcK" name="CPC · nghìn đ/click (trái)" fill={C.ads} barSize={24} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="r" type="monotone" dataKey="ctr" name="Tỷ lệ click CTR (phải)" stroke={C.roasR} strokeWidth={2.4} dot={{ r: 3 }} />
+              <Line yAxisId="r" {...SOFT} dataKey="ctr" name="Tỷ lệ click CTR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, series.length)} activeDot={actOf(C.roasR)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>
@@ -658,7 +664,7 @@ function OverviewTab({ kpi, funnel, series }) {
               ]} />} />
               <Legend {...LEG} />
               <Bar yAxisId="l" dataKey="cpo" name="Chi phí/đơn · tr (trái)" fill={C.blue2} barSize={24} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="r" type="monotone" dataKey="cr" name="Tỷ lệ chuyển đổi CR (phải)" stroke={C.roasR} strokeWidth={2.4} dot={{ r: 3 }} />
+              <Line yAxisId="r" {...SOFT} dataKey="cr" name="Tỷ lệ chuyển đổi CR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, series.length)} activeDot={actOf(C.roasR)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>
@@ -690,10 +696,10 @@ function OverviewTab({ kpi, funnel, series }) {
                 ['CTR', p.ctr != null ? pct(p.ctr, 2) : '—'],
               ]} />} />
               <Legend {...LEG} />
-              <Area yAxisId="l" type="monotone" dataKey="imp" name="Lượt xem (trái)"
-                stroke="#353E99" strokeWidth={1.8} fill="url(#gImp)" />
-              <Line yAxisId="r" type="monotone" dataKey="clk" name="Lượt click (phải)"
-                stroke={C.amber} strokeWidth={2.2} dot={{ r: 3 }} />
+              <Area yAxisId="l" {...SOFT} dataKey="imp" name="Lượt xem (trái)"
+                stroke="#353E99" strokeWidth={2.2} fill="url(#gImp)" activeDot={actOf('#353E99')} />
+              <Line yAxisId="r" {...SOFT} dataKey="clk" name="Lượt click (phải)"
+                stroke={C.amber} strokeWidth={2.6} dot={dotOf(C.amber, series.length)} activeDot={actOf(C.amber)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>
@@ -723,8 +729,9 @@ function OverviewTab({ kpi, funnel, series }) {
               <ReferenceLine y={0.5} stroke={C.be} strokeDasharray="4 3"
                 label={{ value: '50%', position: 'insideTopRight', fontSize: 9.5, fill: C.be }} />
               <Legend {...LEG} />
-              <Area type="monotone" dataKey="netRate" name="Tỷ lệ thành công của đơn"
-                stroke="#D97706" strokeWidth={2.4} fill="url(#gNr)" dot={{ r: 3 }} />
+              <Area {...SOFT} dataKey="netRate" name="Tỷ lệ thành công của đơn"
+                stroke="#D97706" strokeWidth={2.6} fill="url(#gNr)"
+                dot={dotOf('#D97706', series.length)} activeDot={actOf('#D97706')} />
             </AreaChart>
           </ResponsiveContainer>
         </section>
@@ -755,8 +762,8 @@ function OverviewTab({ kpi, funnel, series }) {
               <Legend {...LEG} />
               <Bar yAxisId="l" dataKey="rev" name="Doanh thu · tr (trái)" fill={C.ads} barSize={16} radius={[3, 3, 0, 0]} />
               <Bar yAxisId="l" dataKey="ads" name="Chi phí ads · tr (trái)" fill={C.roasR} barSize={16} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="r" type="monotone" dataKey="ln" name="LN sau ads · tr (phải)" stroke={C.good}
-                strokeWidth={2.4} dot={{ r: 3.5 }} />
+              <Line yAxisId="r" {...SOFT} dataKey="ln" name="LN sau ads · tr (phải)" stroke={C.good}
+                strokeWidth={2.6} dot={dotOf(C.good, series.length)} activeDot={actOf(C.good)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>

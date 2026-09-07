@@ -14,6 +14,16 @@ import './overview.css'
 
 const C = { bar: '#353E99', bar2: '#5C67C4', line: '#D97706', line2: '#03406E', grid: '#E7E9F3', axis: '#8E93B5' }
 
+/* Kiểu đường dùng chung cho mọi biểu đồ ở màn này.
+   Dùng 'monotone' chứ không dùng 'natural'/'basis': monotone giữ đúng chiều
+   tăng/giảm giữa hai điểm nên không tạo ra đỉnh/đáy ảo — quan trọng vì đây là
+   số liệu tài chính, đường cong không được vẽ sai hình dạng thật. */
+const SOFT = { type: 'monotone', strokeLinecap: 'round', strokeLinejoin: 'round' }
+/* Trên 14 mốc thời gian thì bỏ điểm cố định — 21 điểm trên một panel nửa trang
+   trông rối hơn là dễ đọc. Điểm chỉ hiện khi trỏ vào. */
+const dotOf = (c, n) => (n > 14 ? false : { r: 3.2, fill: '#fff', stroke: c, strokeWidth: 2 })
+const actOf = c => ({ r: 5.5, fill: '#fff', stroke: c, strokeWidth: 2.5 })
+
 export default function Overview({ filters }) {
   const d = useMemo(() => {
     const a = MONTHS.indexOf(filters.from), b = MONTHS.indexOf(filters.to)
@@ -87,7 +97,7 @@ export default function Overview({ filters }) {
             </p>
           </div>
           <div className="chart-legend">
-            <span><i />Doanh thu thực thu · triệu (trục trái)</span>
+            <span><i />Doanh thu thực thu (trục trái)</span>
             <span><i className="loss" />Hao hụt (huỷ · giảm giá · hoàn)</span>
             <span><i className="line" />Tỷ lệ huỷ đơn (trục phải)</span>
           </div>
@@ -103,7 +113,7 @@ export default function Overview({ filters }) {
               <p>Vùng tô = AOV (triệu/đơn, trục trái) · đường cam = COGS bình quân trên một unit (triệu, trục phải) · nét đứt = mức COGS/unit bình quân kỳ</p>
             </div>
             <div className="chart-legend">
-              <span><i className="area" />AOV · triệu/đơn (trục trái)</span><span><i className="line" />COGS bình quân/unit · triệu (trục phải)</span>
+              <span><i className="area" />AOV (trục trái)</span><span><i className="line" />COGS/unit (trục phải)</span>
             </div>
           </div>
           <AovChart data={d.series} />
@@ -116,7 +126,7 @@ export default function Overview({ filters }) {
               <p>Vùng tô = COGS (triệu, trục trái) · đường cam = GM% (trục phải) · nét đứt = GM% bình quân kỳ</p>
             </div>
             <div className="chart-legend">
-              <span><i className="c-cogs" />COGS · triệu (trục trái)</span><span><i className="line" />GM% (trục phải)</span>
+              <span><i className="c-cogs" />COGS (trục trái)</span><span><i className="line" />GM% (trục phải)</span>
             </div>
           </div>
           <CogsChart data={d.series} />
@@ -295,8 +305,9 @@ function RevenueChart({ data }) {
             fill="url(#gRev)" maxBarSize={30} />
           <Bar yAxisId="L" dataKey="loss" name="Hao hụt: huỷ + giảm giá + hoàn · tr (trái)" stackId="gmv"
             fill="url(#gLoss)" maxBarSize={30} radius={[4, 4, 0, 0]} />
-          <Line yAxisId="R" dataKey="cancel" name="Tỷ lệ huỷ đơn (phải)" stroke={C.line} strokeWidth={2.4}
-            dot={{ r: 3, fill: '#fff', stroke: C.line, strokeWidth: 2 }} activeDot={{ r: 5 }} />
+          <Line yAxisId="R" {...SOFT} dataKey="cancel" name="Tỷ lệ huỷ đơn (phải)"
+            stroke={C.line} strokeWidth={2.6}
+            dot={dotOf(C.line, rows.length)} activeDot={actOf(C.line)} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -333,12 +344,14 @@ function AovChart({ data }) {
             axisLine={false} width={46} tickFormatter={v => num(v, 2)} />
           <Tooltip contentStyle={{ border: '1px solid #DEE0EC', borderRadius: 8, fontSize: 11 }}
             formatter={(v, n) => [v == null ? '—' : `${num(v, 2)} triệu`, n]} />
-          <Area yAxisId="L" dataKey="aov" name="AOV · tr/đơn (trái)" stroke={C.bar} strokeWidth={2}
-            fill="url(#gAov)" dot={{ r: 2.5, fill: C.bar, strokeWidth: 0 }} activeDot={{ r: 4 }} />
+          <Area yAxisId="L" {...SOFT} dataKey="aov" name="AOV · tr/đơn (trái)"
+            stroke={C.bar} strokeWidth={2.2} fill="url(#gAov)"
+            dot={dotOf(C.bar, rows.length)} activeDot={actOf(C.bar)} />
           <ReferenceLine yAxisId="R" y={avgCogs} stroke={C.line} strokeDasharray="4 4" strokeOpacity={0.65}
             label={{ value: `TB ${num(avgCogs, 2)}`, position: 'right', fontSize: 9, fill: C.line }} />
-          <Line yAxisId="R" dataKey="cogsU" name="COGS bình quân/unit · tr (phải)" stroke={C.line} strokeWidth={2.2}
-            dot={{ r: 2.5, fill: C.line, strokeWidth: 0 }} activeDot={{ r: 4 }} connectNulls />
+          <Line yAxisId="R" {...SOFT} dataKey="cogsU" name="COGS bình quân/unit · tr (phải)"
+            stroke={C.line} strokeWidth={2.6}
+            dot={dotOf(C.line, rows.length)} activeDot={actOf(C.line)} connectNulls />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -372,12 +385,14 @@ function CogsChart({ data }) {
             axisLine={false} width={44} tickFormatter={v => `${v.toFixed(0)}%`} />
           <Tooltip contentStyle={{ border: '1px solid #DEE0EC', borderRadius: 8, fontSize: 11 }}
             formatter={(v, n) => [n === 'GM%' ? `${v.toFixed(1)}%` : `${num(Math.round(v))} triệu`, n]} />
-          <Area yAxisId="L" dataKey="cogs" name="COGS · tr (trái)" stroke={C.bar} strokeWidth={2}
-            fill="url(#gCogs)" dot={{ r: 2.5, fill: C.bar, strokeWidth: 0 }} activeDot={{ r: 4 }} />
+          <Area yAxisId="L" {...SOFT} dataKey="cogs" name="COGS · tr (trái)"
+            stroke={C.bar} strokeWidth={2.2} fill="url(#gCogs)"
+            dot={dotOf(C.bar, rows.length)} activeDot={actOf(C.bar)} />
           <ReferenceLine yAxisId="R" y={avgGm} stroke={C.line} strokeDasharray="4 4" strokeOpacity={0.65}
             label={{ value: `TB ${avgGm.toFixed(0)}%`, position: 'right', fontSize: 9, fill: C.line }} />
-          <Line yAxisId="R" dataKey="gm" name="GM% (phải)" stroke={C.line} strokeWidth={2.2}
-            dot={{ r: 2.5, fill: C.line, strokeWidth: 0 }} activeDot={{ r: 4 }} />
+          <Line yAxisId="R" {...SOFT} dataKey="gm" name="GM% (phải)"
+            stroke={C.line} strokeWidth={2.6}
+            dot={dotOf(C.line, rows.length)} activeDot={actOf(C.line)} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

@@ -88,3 +88,20 @@
 .tip-card .lo span,.tip-card .lo i{color:var(--muted)}
 .tip-card .cc{margin-top:5px;padding-top:5px;border-top:1px solid var(--line)}
 .tip-card .cc span,.tip-card .cc i{color:var(--amber)}
+
+/* Đường trên biểu đồ: thêm bóng mờ cho có chiều sâu, và làm điểm nổi lên khi hover.
+   Dùng CSS filter thay vì filter SVG trong JSX để chắc chắn áp được cho mọi
+   loại chart của recharts. */
+.chart .recharts-line-curve {
+  filter: drop-shadow(0 2px 3px rgba(217, 119, 6, .3));
+}
+.chart .recharts-area-curve {
+  filter: drop-shadow(0 2px 3px rgba(53, 62, 153, .22));
+}
+.chart .recharts-line-dot circle,
+.chart .recharts-area-dot circle {
+  transition: r .12s ease;
+}
+.chart .recharts-active-dot circle {
+  filter: drop-shadow(0 1px 3px rgba(27, 32, 80, .3));
+}

@@ -239,3 +239,8 @@
 
 /* thanh Phạm vi gọn hơn */
 .mk-page .m2-filter { margin-bottom: 12px; }
+
+/* Đường trên biểu đồ: bóng mờ cho có chiều sâu, thống nhất với màn Tổng quan */
+.mk-page .recharts-line-curve { filter: drop-shadow(0 2px 3px rgba(217, 119, 6, .26)); }
+.mk-page .recharts-area-curve { filter: drop-shadow(0 2px 3px rgba(53, 62, 153, .2)); }
+.mk-page .recharts-active-dot circle { filter: drop-shadow(0 1px 3px rgba(27, 32, 80, .3)); }
