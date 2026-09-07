@@ -1,0 +1,241 @@
+/* Marketing Analysis — dùng lại token & lớp m2-* chung, chỉ thêm phần riêng */
+
+.mk-verdict {
+  display: flex; gap: 12px; align-items: flex-start;
+  border: 1px solid var(--line); border-left-width: 3px;
+  border-radius: var(--r-panel); background: #fff;
+  padding: 10px 14px; margin-bottom: 12px;
+}
+.mk-verdict b {
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-3); padding-top: 2px; white-space: nowrap;
+}
+.mk-verdict p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--ink-2); }
+.mk-verdict.red { border-left-color: var(--bad); }
+.mk-verdict.green { border-left-color: var(--good); }
+.mk-verdict.grey { border-left-color: var(--line); }
+
+.mk-kpis {
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  gap: 10px; margin-bottom: 12px;
+}
+@media (max-width: 1240px) { .mk-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px) { .mk-kpis { grid-template-columns: repeat(2, 1fr); } }
+.mk-kpi {
+  background: #fff; border: 1px solid var(--line); border-top: 2px solid var(--blue2);
+  border-radius: var(--r-kpi); padding: 9px 11px 10px;
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+.mk-kpi.blue { border-top-color: var(--blue); }
+.mk-kpi.amber { border-top-color: var(--amber); }
+.mk-kpi.good { border-top-color: var(--good); }
+.mk-kpi.bad { border-top-color: var(--bad); }
+.mk-kpi.grey { border-top-color: var(--line); }
+.mk-kpi .k {
+  font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3);
+}
+.mk-kpi strong {
+  font-size: 20px; font-weight: 650; color: var(--ink); line-height: 1.1;
+  display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap;
+}
+.mk-kpi strong em { font-size: 10px; font-weight: 500; font-style: normal; color: var(--muted); }
+.mk-kpi .sub { font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+
+.mk-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 1080px) { .mk-row2 { grid-template-columns: 1fr; } }
+
+/* ---- phễu (SVG) ---- */
+.mk-funnel-svg { width: 100%; height: auto; display: block; margin: 2px 0 4px; }
+.mk-funnel-svg .fn-val { font-size: 14px; font-weight: 650; }
+.mk-funnel-svg .fn-val.in { fill: #fff; }
+.mk-funnel-svg .fn-val.out { fill: var(--ink); font-size: 13px; }
+.mk-funnel-svg .fn-name { font-size: 12px; font-weight: 600; fill: var(--ink); }
+.mk-funnel-svg .fn-note { font-size: 10px; fill: var(--muted); }
+.mk-funnel-svg .fn-rate-bg { fill: #EFF1FA; stroke: var(--line); stroke-width: 1; }
+.mk-funnel-svg .fn-rate-bg.bad { fill: #FBEAE8; stroke: #F0C9C4; }
+.mk-funnel-svg .fn-rate { font-size: 10.5px; font-weight: 600; fill: var(--ink-2); }
+.mk-funnel-svg .fn-rate.bad { fill: var(--bad); }
+
+/* ---- thanh tab dạng segmented ---- */
+.mk-tabbar { display: flex; align-items: center; margin-bottom: 12px; }
+.mk-tabs {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: #EDEFF8; border: 1px solid var(--line); border-radius: 9px;
+  flex-wrap: wrap;
+}
+.mk-tabs button {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 0; background: transparent; cursor: pointer;
+  padding: 7px 13px; border-radius: 6px;
+  font-size: 12px; font-weight: 550; color: var(--ink-2);
+  transition: background .14s ease, color .14s ease, box-shadow .14s ease;
+}
+.mk-tabs button .ic { font-size: 12.5px; opacity: .75; }
+.mk-tabs button em {
+  font-style: normal; font-size: 10px; font-weight: 600;
+  background: #fff; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 20px; padding: 0 6px; line-height: 15px;
+}
+.mk-tabs button:hover { background: #fff; color: var(--ink); }
+.mk-tabs button.on {
+  background: var(--navy); color: #fff;
+  box-shadow: 0 1px 3px rgba(35, 42, 107, .28);
+}
+.mk-tabs button.on .ic { opacity: 1; }
+.mk-tabs button.on em { background: rgba(255, 255, 255, .16); color: #fff; border-color: transparent; }
+
+/* ---- chú giải màu ---- */
+.mk-legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  padding: 8px 2px 0; font-size: 10.5px; color: var(--muted);
+  border-top: 1px dashed var(--line); margin-top: 6px;
+}
+.mk-legend.wrap { gap: 10px 18px; }
+.mk-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.mk-legend b { color: var(--ink); font-weight: 650; }
+.mk-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+/* ---- thanh phân bổ chi phí theo chẩn đoán ---- */
+.mk-split {
+  display: flex; height: 34px; border-radius: 5px; overflow: hidden;
+  border: 1px solid var(--line); margin: 4px 0 2px;
+}
+.mk-split .seg {
+  flex-basis: 0; min-width: 3px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 11px; font-weight: 650;
+  transition: filter .14s ease;
+}
+.mk-split .seg:hover { filter: brightness(1.12); }
+
+.mk-note.thin { margin-top: 6px; padding-top: 5px; font-size: 10.5px; }
+.mk-note {
+  margin: 8px 0 0; font-size: 11px; line-height: 1.55; color: var(--muted);
+  border-top: 1px dashed var(--line); padding-top: 7px;
+}
+
+/* ---- bảng ---- */
+.mk-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.mk-table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--navy); color: #fff; font-weight: 600; font-size: 10px;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 7px 8px; text-align: left; white-space: nowrap;
+}
+.mk-table th.num, .mk-table td.num { text-align: right; }
+.mk-table tbody td {
+  padding: 6px 8px; border-bottom: 1px solid var(--line); color: var(--ink-2);
+  white-space: nowrap;
+}
+.mk-table tbody tr:hover td { background: #F7F8FD; }
+.mk-table td.nm {
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: var(--ink); font-weight: 550;
+}
+.mk-table td.b { font-weight: 650; color: var(--ink); }
+.mk-table td.muted { color: var(--ink-3); }
+.mk-table td.good { color: var(--good); }
+.mk-table td.bad { color: var(--bad); }
+.mk-table tfoot td {
+  padding: 7px 8px; border-top: 2px solid var(--line);
+  background: #F5F6FB; font-weight: 650; color: var(--ink); white-space: nowrap;
+}
+.mk-table.sub thead th { background: var(--blue2); }
+
+.st { font-size: 10px; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.st-ongoing { background: #E4F3EA; color: var(--good); }
+.st-paused { background: #FDF0DC; color: var(--amber); }
+.st-ended, .st-closed { background: #EFF0F6; color: var(--ink-3); }
+
+.tag { font-size: 10px; padding: 1.5px 7px; border-radius: 3px; white-space: nowrap; font-weight: 550; }
+.tag.t-green { background: #E4F3EA; color: var(--good); }
+.tag.t-amber { background: #FDF0DC; color: #9A5B06; }
+.tag.t-red { background: #FBEAE8; color: var(--bad); }
+.tag.t-grey { background: #EFF0F6; color: var(--ink-3); }
+
+/* ---- chẩn đoán ---- */
+.mk-diags { display: flex; flex-direction: column; gap: 9px; }
+.mk-diag { border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--r-control); overflow: hidden; }
+.mk-diag.t-red { border-left-color: var(--bad); }
+.mk-diag.t-amber { border-left-color: var(--amber); }
+.mk-diag.t-green { border-left-color: var(--good); }
+.mk-diag.t-grey { border-left-color: var(--ink-3); }
+.mk-diag .hd {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  background: #F7F8FD; border: 0; border-bottom: 1px solid var(--line);
+  padding: 8px 11px; cursor: pointer; text-align: left; font-size: 12.5px; color: var(--ink);
+}
+.mk-diag .hd:hover { background: #EFF1FA; }
+.mk-diag .hd .ar { color: var(--ink-3); width: 10px; }
+.mk-diag .hd .cnt { color: var(--muted); font-size: 11px; }
+.mk-diag .hd .sp { margin-left: auto; font-weight: 650; }
+.mk-diag .hd .sp em { font-style: normal; font-weight: 400; color: var(--muted); font-size: 11px; }
+.mk-diag .bd { padding: 9px 12px 11px; }
+.mk-diag .bd p { margin: 0 0 5px; font-size: 11.5px; line-height: 1.55; color: var(--ink-2); }
+.mk-diag .bd p b { color: var(--ink); }
+.mk-diag .bd .act { color: var(--ink-2); }
+.mk-diag .bd table { margin-top: 8px; }
+
+/* ---- cách tính ---- */
+.mk-method { padding: 4px 2px; max-width: 940px; }
+.mk-method h4 {
+  margin: 14px 0 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--blue);
+}
+.mk-method h4:first-child { margin-top: 4px; }
+.mk-method ul { margin: 0; padding-left: 18px; }
+.mk-method li { font-size: 12px; line-height: 1.65; color: var(--ink-2); margin-bottom: 4px; }
+.mk-method li b { color: var(--ink); }
+
+/* ---- tooltip ---- */
+.mk-tip {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--r-control);
+  box-shadow: 0 6px 18px rgba(35, 42, 107, .12); padding: 8px 10px; font-size: 11.5px;
+}
+.mk-tip b { display: block; color: var(--ink); margin-bottom: 5px; font-size: 11px; }
+.mk-tip div { display: flex; justify-content: space-between; gap: 16px; line-height: 1.75; }
+.mk-tip div span { color: var(--muted); }
+.mk-tip div em { font-style: normal; font-weight: 600; color: var(--ink); }
+.mk-tip div.good em { color: var(--good); }
+.mk-tip div.bad em { color: var(--bad); }
+
+/* ---- kỳ không có dữ liệu / kỳ bị cắt ---- */
+.mk-empty {
+  background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--amber);
+  border-radius: var(--r-panel); padding: 16px 18px; margin-bottom: 12px;
+}
+.mk-empty > b { display: block; font-size: 13.5px; color: var(--ink); margin-bottom: 6px; }
+.mk-empty p b { color: var(--ink); }
+.mk-empty p { margin: 0 0 12px; font-size: 12.5px; line-height: 1.6; color: var(--ink-2); max-width: 760px; }
+.mk-empty button {
+  background: var(--blue); color: #fff; border: 0; border-radius: var(--r-control);
+  padding: 7px 14px; font-size: 12px; font-weight: 550; cursor: pointer;
+}
+.mk-empty button:hover { background: var(--navy); }
+
+.mk-clip {
+  background: #FDF8EE; border: 1px solid #F0DDBB; border-radius: var(--r-control);
+  padding: 7px 12px; margin-bottom: 10px; font-size: 11.5px; color: #7A4A05; line-height: 1.5;
+}
+.mk-clip b { color: #5C3703; }
+
+/* ---- đầu panel của màn này: tiêu đề 1 dòng, mô tả xuống dòng dưới ----
+   m2-head mặc định đặt tiêu đề và mô tả cạnh nhau; ở màn này panel chỉ rộng
+   nửa trang nên tiêu đề bị bó thành 2-3 dòng, trông rất bí. */
+.mk-page .m2-panel > .m2-head {
+  display: block;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.mk-page .m2-panel > .m2-head h3 {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .01em;
+  text-transform: none; color: var(--ink); margin-bottom: 3px;
+}
+.mk-page .m2-panel > .m2-head > span {
+  display: block; font-size: 10.5px; line-height: 1.5; color: var(--muted);
+}
+.mk-page .m2-panel > .m2-head .group-ctrl { margin-top: 7px; }
+
+/* thanh Phạm vi gọn hơn */
+.mk-page .m2-filter { margin-bottom: 12px; }

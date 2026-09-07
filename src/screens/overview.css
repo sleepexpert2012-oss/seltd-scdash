@@ -1,0 +1,90 @@
+/* ---------- Lưới KPI: 5 cột × 2 hàng ---------- */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-bottom:14px}
+.kpi{
+  background:var(--surface);border:1px solid var(--line);border-top:3px solid #8B90C4;
+  border-radius:var(--r-kpi);padding:13px 14px;min-width:0;box-shadow:var(--sh-kpi);
+}
+.kpi.blue{border-top-color:var(--blue)}
+.kpi.amber{border-top-color:var(--amber)}
+.kpi>span{
+  display:block;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);font-size:9px;font-weight:700;
+}
+.kpi strong{
+  display:block;margin:7px 0 2px;color:var(--ink);
+  font-size:clamp(17px,1.35vw,24px);font-weight:600;letter-spacing:-.045em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.kpi small{display:block;font-size:9px;line-height:1.35;color:var(--ink-3)}
+.kpi small.unit{color:var(--muted)}
+.kpi small.prev{margin-top:5px;color:var(--ink-3)}
+.kpi-compare{min-height:14px;margin:3px 0 5px;font-size:9px;font-weight:700;color:var(--muted)}
+.kpi-compare.good{color:var(--good)}
+.kpi-compare.bad{color:var(--bad)}
+
+/* ---------- Biểu đồ ---------- */
+.chart{width:100%}
+.chart-legend{display:flex;gap:12px;align-items:center;flex:none}
+.chart-legend span{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--ink-2)}
+.chart-legend i{width:10px;height:10px;border-radius:2px;background:var(--blue)}
+.chart-legend i.line{width:14px;height:0;border-top:2px solid var(--amber);border-radius:0}
+.chart-legend i.area{background:linear-gradient(180deg,rgba(53,62,153,.55),rgba(53,62,153,.12));border:1px solid var(--blue)}
+.chart-legend i.c-cogs{background:#353E99}
+.chart-legend i.loss{background:#C3C6E4}
+
+.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px}
+.grid-2>.panel{margin-bottom:0}
+
+/* ---------- Top 10 ---------- */
+.empty{margin:0;padding:26px 0;text-align:center;font-size:11px;color:var(--ink-3)}
+.top10-chart{overflow-x:auto}
+
+.table-wrap{overflow:auto;border:1px solid #E7EBF1;border-radius:6px}
+.table-wrap table{width:100%;border-collapse:collapse;font-size:11px}
+.table-wrap th{
+  position:sticky;top:0;background:var(--surface-tint);color:var(--ink-2);
+  text-transform:uppercase;letter-spacing:.06em;font-size:8.5px;text-align:left;
+  padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.table-wrap td{padding:8px 10px;border-bottom:1px solid #EEF0F6;vertical-align:top}
+.table-wrap tbody tr:hover{background:var(--surface-soft)}
+.table-wrap td b{display:block;color:var(--ink);font-size:11px}
+.table-wrap td small{display:block;margin-top:2px;color:var(--ink-3);font-size:9px;line-height:1.35}
+.table-wrap .num{text-align:right;white-space:nowrap}
+.table-wrap td.rank{color:var(--ink-3);font-weight:700}
+.table-wrap td.gm-hi{color:var(--good);font-weight:700}
+.table-wrap td.gm-lo{color:var(--bad);font-weight:700}
+
+@media (max-width:1280px){
+  .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media (max-width:900px){
+  .grid-2{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media print{
+  .kpi-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important}
+  .kpi{box-shadow:none!important;padding:9px!important}
+  .grid-2{display:block!important}
+  .grid-2>.panel{margin-bottom:8px!important}
+}
+
+/* Cặp Top 10 bán chạy · Top 10 tồn kho */
+.top-pair>.panel{min-width:0}
+.top-pair .top10-chart{overflow-x:auto}
+@media (max-width:1400px){
+  .top-pair{grid-template-columns:1fr}
+}
+
+/* Tooltip tuỳ biến cho biểu đồ doanh thu */
+.tip-card{
+  min-width:190px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;box-shadow:var(--sh-tooltip);font-size:11px;color:var(--ink-2);
+}
+.tip-card>b{display:block;margin-bottom:7px;font-size:11px;color:var(--ink)}
+.tip-card>div{display:flex;justify-content:space-between;gap:14px;padding:2px 0}
+.tip-card i{font-style:normal;font-weight:700;color:var(--ink)}
+.tip-card .hi span,.tip-card .hi i{color:var(--blue)}
+.tip-card .lo span,.tip-card .lo i{color:var(--muted)}
+.tip-card .cc{margin-top:5px;padding-top:5px;border-top:1px solid var(--line)}
+.tip-card .cc span,.tip-card .cc i{color:var(--amber)}

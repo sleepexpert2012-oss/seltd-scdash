@@ -1,0 +1,95 @@
+/* Thanh chọn tháng & chỉ số */
+.cal-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:10px 14px;margin-bottom:12px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-control);
+}
+.cal-nav{display:flex;align-items:center;gap:8px}
+.cal-nav select{
+  height:32px;padding:0 10px;border:1px solid var(--line);border-radius:5px;
+  background:var(--surface-soft);color:var(--ink);font-size:12px;font-weight:650;
+}
+.cal-nav .xls-btn{width:30px;justify-content:center;font-size:14px;padding:0}
+.cal-nav .xls-btn:disabled{opacity:.4;cursor:not-allowed}
+.cal-metric{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cal-metric>span{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.cal-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px}
+.cal-side{display:grid;gap:14px;align-content:start}
+.cal-panel{margin-bottom:0}
+
+/* Thang màu trong tiêu đề */
+.cal-scale{display:flex;align-items:center;gap:4px}
+.cal-scale>span{font-size:9px;color:var(--muted)}
+.cal-scale i{width:16px;height:10px;border-radius:2px;display:block}
+.cal-scale i.s1{background:#EDEFF9}
+.cal-scale i.s2{background:#D3D7EE}
+.cal-scale i.s3{background:#A9AFE0}
+.cal-scale i.s4{background:#6E79C9}
+.cal-scale i.s5{background:#353E99}
+
+/* Lưới lịch */
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal-dow{
+  padding:6px 4px;text-align:center;font-size:9px;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);
+}
+.cal-cell{
+  position:relative;min-height:74px;padding:6px 8px 8px;text-align:left;
+  border:1px solid var(--line);border-radius:7px;background:var(--surface);
+  display:flex;flex-direction:column;justify-content:flex-end;gap:2px;
+}
+.cal-cell.empty{background:transparent;border-color:transparent;pointer-events:none;min-height:0}
+.cal-cell em{
+  position:absolute;top:5px;right:8px;font-style:normal;
+  font-size:10px;font-weight:700;color:var(--ink-3);
+}
+.cal-cell b{font-size:14px;font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1.1}
+.cal-cell b.zero{color:#C7CBDF;font-weight:500;font-size:12px}
+.cal-cell u{text-decoration:none;font-size:8.5px;color:var(--muted)}
+.cal-cell:hover{box-shadow:0 0 0 2px var(--blue2)}
+.cal-cell.on{box-shadow:0 0 0 2px var(--navy)}
+.cal-cell.best{border-color:var(--amber)}
+.cal-cell.best em{color:var(--amber)}
+
+.cal-cell.l0{background:var(--surface)}
+.cal-cell.l1{background:#F3F5FC}
+.cal-cell.l2{background:#E4E7F5}
+.cal-cell.l3{background:#C9CEEC}
+.cal-cell.l4{background:#9BA4DC;border-color:#8B95D4}
+.cal-cell.l4 b,.cal-cell.l4 em,.cal-cell.l4 u{color:#151A45}
+.cal-cell.l5{background:#4A54AE;border-color:#3B44A0}
+.cal-cell.l5 b{color:#fff}
+.cal-cell.l5 em{color:#D8DBF2}
+.cal-cell.l5 u{color:#C3C8EA}
+
+.cal-note{margin:12px 0 0;font-size:10.5px;line-height:1.55;color:var(--muted)}
+.cal-note b{color:var(--ink-2)}
+
+/* Danh sách ngày / SKU */
+.day-list{display:grid;gap:6px}
+.day-row{
+  display:grid;grid-template-columns:20px minmax(0,1.1fr) minmax(0,1fr) 62px;
+  align-items:center;gap:9px;
+  padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-control);background:var(--surface-soft);
+}
+.day-row.clickable{cursor:pointer}
+.day-row.clickable:hover{background:#EDEFF9}
+.dr-rank{font-size:10px;font-weight:800;color:var(--ink-3);text-align:center}
+.dr-name b{display:block;font-size:10.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-name small{display:block;margin-top:1px;font-size:9px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-bar{height:9px;border-radius:3px;background:#EDEFF6;overflow:hidden}
+.dr-bar i{display:block;height:100%;background:var(--blue);border-radius:3px}
+.dr-val{text-align:right}
+.dr-val b{display:block;font-size:11.5px;font-weight:700;color:var(--ink)}
+.dr-val small{display:block;font-size:8.5px;color:var(--ink-3)}
+
+@media (max-width:1280px){
+  .cal-layout{grid-template-columns:1fr}
+}
+@media (max-width:700px){
+  .cal-cell{min-height:60px;padding:5px 6px 6px}
+  .cal-cell b{font-size:12px}
+  .cal-cell u{display:none}
+}
+@media print{.cal-bar{display:none!important}}

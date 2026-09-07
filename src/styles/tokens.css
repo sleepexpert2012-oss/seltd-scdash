@@ -1,0 +1,61 @@
+/* ============================================================
+   SELTD Supply Chain Dashboard — Design tokens
+   Cấu trúc token kế thừa báo cáo mẫu 1, bảng màu theo brand
+   Sleep Expert (màu chính #353E99 lấy từ logo) — duyệt 06/09/2026
+   ============================================================ */
+:root{
+  /* màu nền tảng */
+  --navy:#232A6B;          /* nền tối: sidebar, banner, panel insight */
+  --blue:#353E99;          /* màu chính: nút, KPI đậm, chart series 1 */
+  --blue2:#5C67C4;         /* nhấn phụ: icon, chart series 2 */
+  --amber:#D97706;         /* accent: eyebrow, vạch menu active */
+  --amber-soft:#F0B45A;    /* eyebrow trên nền tối */
+  --line:#DEE0EC;
+  --muted:#6E739B;
+  --surface:#fff;
+  --danger:#C73737;
+  --bg:#F5F6FB;
+
+  /* màu phụ trợ */
+  --ink:#1B2050;           /* chữ chính */
+  --ink-2:#4A5285;
+  --ink-3:#8E93B5;
+  --on-navy:#C3C0D7;       /* chữ trên nền tối — vòng cung chữ "e" của logo */
+  --on-navy-2:#9E9CC0;
+  --good:#1F7A45;
+  --bad:#B42318;
+  --border-input:#BFC3DA;
+  --border-soft:#CFD3E4;
+  --surface-soft:#FAFBFD;  /* nền input, footer */
+  --surface-tint:#F1F3FA;  /* nền hộp phụ, hover */
+
+  /* trạng thái lỗi */
+  --err-bg:#FFF1F1;
+  --err-line:#EFC7C7;
+  --err-ink:#94222A;
+
+  /* chart */
+  --c1:#353E99; --c2:#5C67C4; --c3:#8E96DC; --c4:#03406E; --c5:#D97706;
+
+  /* bo góc */
+  --r-panel:8px;
+  --r-kpi:7px;
+  --r-control:6px;
+  --r-card:12px;
+  --r-pill:999px;
+
+  /* đổ bóng */
+  --sh-panel:0 3px 10px rgba(35,42,107,.055);
+  --sh-kpi:0 2px 5px rgba(35,42,107,.055);
+  --sh-float:0 20px 60px rgba(27,32,80,.20);
+  --sh-tooltip:0 12px 32px rgba(35,42,107,.14);
+
+  font-family:"Segoe UI","Segoe UI Variable",system-ui,-apple-system,BlinkMacSystemFont,Arial,sans-serif;
+  color:var(--ink);
+  background:var(--bg);
+  font-synthesis:none;
+}
+*{box-sizing:border-box}
+body{margin:0;min-width:320px;min-height:100vh;background:var(--bg)}
+button,input,select{font:inherit}
+button{cursor:pointer}

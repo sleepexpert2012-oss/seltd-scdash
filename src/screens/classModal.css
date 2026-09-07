@@ -1,0 +1,140 @@
+/* Màn phụ Class Dashboard — cấu trúc theo mẫu 2, màu theo brand */
+.modal{
+  position:fixed;inset:0;z-index:90;padding:24px;
+  background:rgba(14,20,58,.55);display:flex;align-items:flex-start;justify-content:center;
+}
+.mbox{
+  width:100%;max-width:1120px;max-height:92vh;overflow:auto;
+  background:var(--surface);border-radius:10px;padding:18px 22px;
+  box-shadow:0 24px 70px rgba(14,20,58,.35);
+}
+
+.mhead{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding-bottom:11px;margin-bottom:12px;border-bottom:2px solid var(--navy);
+}
+.mhead>div>span{font-size:9px;font-weight:800;letter-spacing:.13em;color:var(--amber)}
+.mhead h3{margin:5px 0 0;font-size:19px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.mhead h3 em{font-style:normal;font-weight:500;font-size:13px;color:var(--muted)}
+.mhead-act{display:flex;align-items:center;gap:10px;flex:none}
+.mclose{border:0;background:none;font-size:24px;line-height:1;color:var(--muted);padding:0 4px}
+.mclose:hover{color:var(--ink)}
+
+.mmeta{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:14px;font-size:11.5px;color:var(--ink)}
+.mmeta>div{min-width:0}
+.mmeta b{
+  display:block;font-size:9px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:2px;
+}
+.mmeta i{font-style:normal}
+
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.msec-h{
+  grid-column:1/-1;margin-top:6px;padding:10px 16px;border-radius:8px;
+  background:linear-gradient(90deg,#1B2050,#353E99);color:#fff;
+  font-size:14px;font-weight:800;letter-spacing:.02em;
+}
+.msec-h.first{margin-top:0}
+.msec-h small{display:block;margin-top:2px;font-size:11px;font-weight:400;opacity:.82}
+
+.mgrid .card{
+  background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0;
+  box-shadow:0 1px 2px rgba(27,32,80,.04);
+}
+.mgrid .card.w2{grid-column:1/-1}
+.mgrid .card h4{
+  margin:0 0 5px;font-size:11.5px;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--ink);
+}
+.mgrid .card p.sub{margin:0 0 9px;font-size:10px;line-height:1.5;color:var(--muted)}
+.mgrid .card p.note{margin:8px 0 0;font-size:10px;line-height:1.55;color:var(--muted)}
+.mgrid .card p.none{margin:6px 0 0;font-size:10.5px;color:var(--ink-3)}
+
+/* dải KPI trong modal */
+.kpi-line{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0}
+.kpi-line>div{padding:2px 12px;border-right:1px solid var(--line)}
+.kpi-line>div:last-child{border-right:0}
+.kpi-line span{display:block;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.kpi-line strong{display:block;margin:4px 0 2px;font-size:17px;font-weight:600;letter-spacing:-.04em;color:var(--ink)}
+.kpi-line small{display:block;font-size:9px;color:var(--ink-3)}
+.kpi-line i{font-style:normal;font-weight:700}
+.kpi-line i.up,.mgrid i.up{color:var(--good)}
+.kpi-line i.down,.mgrid i.down{color:var(--bad)}
+
+/* khối tồn kho */
+.stk-line{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;margin-bottom:10px}
+.stk-line>div{padding:2px 10px;border-right:1px solid var(--line)}
+.stk-line>div:last-child{border-right:0}
+.stk-line span{display:block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.stk-line strong{display:block;margin:4px 0 2px;font-size:16px;font-weight:600;color:var(--ink)}
+.stk-line strong.statusv{font-size:18px}
+.stk-line small{display:block;font-size:8.5px;color:var(--ink-3);line-height:1.3}
+
+.sop-box{padding:11px 13px;border:1px solid #DCE6F5;border-radius:6px;background:#F4F7FC}
+.sop-box>b{display:block;margin-bottom:6px;font-size:11px;color:var(--ink)}
+.sop-row{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:var(--ink-2);margin-bottom:7px}
+.sop-row b{color:var(--ink)}
+.sop-box p{margin:0;font-size:11px;line-height:1.6;color:var(--ink-2)}
+
+/* bảng trong modal */
+.mtable{overflow:auto;max-height:300px;border:1px solid #E4E8F2;border-radius:5px}
+.mtable table{width:100%;border-collapse:collapse;font-size:10.5px}
+.mtable th{
+  position:sticky;top:0;z-index:2;background:var(--navy);color:#fff;padding:7px 8px;
+  text-align:left;font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;
+}
+.mtable td{padding:6px 8px;border-bottom:1px solid #EEF0F6;color:var(--ink-2);vertical-align:middle}
+.mtable td b{display:block;color:var(--ink)}
+.mtable td small{display:block;margin-top:1px;font-size:8.5px;color:var(--ink-3)}
+.mtable .num{text-align:right;white-space:nowrap}
+.mtable .strong{font-weight:700;color:var(--ink)}
+.mtable .dim{color:var(--ink-3)}
+.mtable .need{color:var(--amber);font-weight:800}
+.mtable tr.tot td{background:var(--surface-tint);font-weight:700;color:var(--ink)}
+.mtable i.up{color:var(--good);font-style:normal;font-weight:700}
+.mtable i.down{color:var(--bad);font-style:normal;font-weight:700}
+
+/* so sánh SKU chủ lực */
+.sku-cmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.cmp-item{padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface-soft)}
+.cmp-item>b{display:block;margin-bottom:6px;font-size:11px;color:var(--ink)}
+.cmp-item>div{display:flex;align-items:baseline;gap:6px;font-size:10.5px;color:var(--muted);margin-bottom:3px}
+.cmp-item span{min-width:66px;font-weight:600;color:var(--ink-2)}
+.cmp-item strong{color:var(--ink)}
+.cmp-item i{font-style:normal;font-weight:700}
+
+/* khối kết luận */
+.decomp{
+  grid-column:1/-1;padding:12px 14px;border:1px solid var(--line);
+  border-left:3px solid var(--amber);border-radius:6px;background:#F6F8FC;
+}
+.decomp>span{
+  display:block;margin-bottom:5px;font-size:9px;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--amber);
+}
+.decomp p{margin:0 0 6px;font-size:11px;line-height:1.65;color:var(--ink-2)}
+.decomp p:last-child{margin-bottom:0}
+.decomp p.big{font-size:13px;font-weight:700;color:var(--ink)}
+.decomp p.action{padding-top:7px;border-top:1px solid var(--line);color:var(--ink)}
+
+/* dòng có thể bấm để mở drill-down */
+.drillable{cursor:pointer}
+.drillable:hover{background:#EDEFF9!important}
+
+@media (max-width:1000px){
+  .mgrid{grid-template-columns:1fr}
+  .kpi-line{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .stk-line{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .sku-cmp{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .modal{padding:8px}
+  .mbox{padding:12px;max-height:96vh}
+  .kpi-line,.stk-line{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media print{
+  .modal{position:static;padding:0;background:none;display:block}
+  .mbox{max-width:100%;max-height:none;overflow:visible;box-shadow:none;padding:0}
+  .mhead-act{display:none!important}
+  .mgrid .card,.decomp{break-inside:avoid-page}
+}

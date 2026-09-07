@@ -1,0 +1,82 @@
+/* Bảng chung của trang Range */
+.rng-table{width:100%;border-collapse:collapse;font-size:11px}
+.rng-table th{
+  position:sticky;top:0;z-index:2;background:var(--surface-tint);color:var(--ink-2);
+  text-transform:uppercase;letter-spacing:.06em;font-size:8.5px;text-align:left;
+  padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.rng-table td{padding:8px 10px;border-bottom:1px solid #EEF0F6;vertical-align:top}
+.rng-table td b{display:block;color:var(--ink);font-size:11px}
+.rng-table td small{display:block;margin-top:2px;color:var(--ink-3);font-size:9px}
+.rng-table .num{text-align:right;white-space:nowrap}
+.rng-table .strong{font-weight:700;color:var(--ink)}
+.rng-table .up{color:var(--good);font-weight:600}
+.rng-table .down{color:var(--bad);font-weight:600}
+.rng-table .dim{color:var(--ink-3)}
+.rng-table .gm-hi{color:var(--good);font-weight:700}
+.rng-table .gm-lo{color:var(--bad);font-weight:700}
+.rng-table tr.clickable{cursor:pointer}
+.rng-table tr.clickable:hover{background:var(--surface-soft)}
+.rng-table tr.clickable.on{background:#EDEFF9}
+.rng-table tr.clickable.on td:first-child{box-shadow:inset 3px 0 var(--blue)}
+.rng-table tr.total td{background:var(--surface-tint);font-weight:700;border-top:1px solid var(--line)}
+.rng-table .band{color:var(--ink-2);white-space:nowrap}
+.rng-list{max-height:460px}
+.star{color:var(--amber);font-style:normal;margin-right:4px}
+
+/* Ma trận */
+.matrix-scroll{overflow-x:auto;border:1px solid #E7EBF1;border-radius:6px}
+.matrix{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;min-width:720px}
+.matrix th{
+  background:var(--navy);color:#fff;font-size:9px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;padding:9px 10px;text-align:center;white-space:nowrap;
+}
+.matrix th small{
+  display:block;margin-top:3px;font-size:8px;font-weight:500;letter-spacing:0;
+  text-transform:none;color:var(--on-navy);
+}
+.matrix th.corner{text-align:left;min-width:190px}
+.matrix th.tot{background:#1A2050}
+.matrix th.rowh{
+  background:var(--surface-tint);color:var(--ink);text-align:left;
+  font-size:10px;letter-spacing:0;text-transform:none;font-weight:650;
+  border-bottom:1px solid var(--line);border-right:1px solid var(--line);
+}
+.matrix td{
+  padding:9px 10px;text-align:center;vertical-align:middle;
+  border-bottom:1px solid var(--line);border-right:1px solid var(--line);
+}
+.matrix td.cell{cursor:pointer;transition:box-shadow .12s}
+.matrix td.cell:hover{box-shadow:inset 0 0 0 2px var(--blue2)}
+.matrix td.cell.on{background:var(--blue);box-shadow:inset 0 0 0 2px var(--navy)}
+.matrix td.cell.on b,.matrix td.cell.on span,.matrix td.cell.on em{color:#fff}
+.matrix td b{display:block;font-size:12px;font-weight:700;color:var(--ink)}
+.matrix td span{display:block;margin-top:2px;font-size:9px;color:var(--ink-2)}
+.matrix td em{display:block;margin-top:2px;font-style:normal;font-size:8.5px;font-weight:700}
+.matrix td em.up{color:var(--good)}
+.matrix td em.down{color:var(--bad)}
+.matrix td.blank{color:#C7CBDF;background:var(--surface-soft)}
+.matrix td.tot{background:var(--surface-tint);font-weight:700}
+.matrix tr.foot td,.matrix tr.foot th{border-top:2px solid var(--line)}
+
+/* Bảng hành động */
+.act-table td.why{color:var(--muted);font-size:10px;line-height:1.45;max-width:280px;white-space:normal}
+.act{
+  display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
+  font-size:10px;font-weight:700;white-space:nowrap;
+}
+.act.a-scale{background:#E7F4EC;color:#1F6B3B}
+.act.a-keep{background:var(--surface-tint);color:var(--ink-2)}
+.act.a-watch{background:#FFF4E0;color:#8A5B00}
+.act.a-investigate{background:#FDEEE6;color:#93411A}
+.act.a-margin{background:#FCECEC;color:#94222A}
+.act.a-price{background:#FCE9E9;color:#7E1B22}
+
+@media (max-width:900px){
+  .matrix{min-width:640px}
+  .act-table td.why{max-width:none}
+}
+@media print{
+  .rng-list{max-height:none!important}
+  .matrix-scroll{overflow:visible!important}
+}

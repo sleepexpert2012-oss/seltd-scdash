@@ -1,0 +1,101 @@
+/* Tabs chọn ngành */
+.cat-tabs{display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.cat-tab{
+  height:32px;padding:0 15px;border:1px solid var(--line);border-radius:var(--r-pill);
+  background:var(--surface);color:var(--ink-2);font-size:12px;font-weight:650;
+}
+.cat-tab:hover{background:var(--surface-tint)}
+.cat-tab.on{background:var(--navy);border-color:var(--navy);color:#fff}
+
+.kpi-grid.kpi-8{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+/* Dải nhìn nhanh */
+.insight-strip{padding:14px 18px}
+.strip-title{
+  display:block;margin-bottom:11px;font-size:9px;font-weight:800;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--amber);
+}
+.mini-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.mini{border-left:2px solid var(--line);padding-left:11px;min-width:0}
+.mini.wide{grid-column:span 1}
+.mini span{
+  display:block;font-size:9px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--muted);
+}
+.mini strong{
+  display:block;margin:5px 0 3px;font-size:17px;font-weight:600;letter-spacing:-.03em;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mini small{display:block;font-size:9px;line-height:1.35;color:var(--ink-3)}
+
+.sort-row{display:flex;gap:5px;flex-wrap:wrap;flex:none}
+
+/* Bảng SKU theo loại hình */
+.sku-table{max-height:520px}
+.sku-table table{font-size:11px}
+.sku-table td{padding:7px 10px}
+.sku-table tr.grp{cursor:pointer;background:var(--surface-tint)}
+.sku-table tr.grp:hover{background:#E9ECF7}
+.sku-table tr.grp td{border-bottom:1px solid var(--line)}
+.sku-table tr.grp td:first-child{border-left:3px solid var(--blue2)}
+.sku-table tr.grp b{font-size:11.5px;color:var(--ink)}
+.sku-table tr.child td:first-child{padding-left:22px}
+.sku-table .strong{font-weight:700;color:var(--ink)}
+.sku-table .up{color:var(--good);font-weight:600}
+.sku-table .down{color:var(--bad);font-weight:600}
+.sku-table .up em,.sku-table .down em{font-style:normal;font-size:9px;opacity:.75}
+.sku-table .dim{color:var(--ink-3)}
+
+/* Bảng phân tích theo kích thước */
+.size-table{max-height:520px}
+.size-table table{width:100%;border-collapse:collapse;font-size:11px}
+.size-table th{
+  position:sticky;top:0;z-index:2;background:var(--surface-tint);color:var(--ink-2);
+  text-transform:uppercase;letter-spacing:.06em;font-size:8.5px;text-align:left;
+  padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.size-table td{padding:7px 10px;border-bottom:1px solid #EEF0F6;vertical-align:middle}
+.size-table td b{display:block;color:var(--ink);font-size:11px}
+.size-table td small{display:block;margin-top:2px;color:var(--ink-3);font-size:9px}
+.size-table .num{text-align:right;white-space:nowrap}
+.size-table .strong{font-weight:700;color:var(--ink)}
+.size-table .dim{color:var(--ink-3)}
+.size-table .up{color:var(--good);font-weight:600}
+.size-table .down{color:var(--bad);font-weight:600}
+.size-table .gm-hi{color:var(--good);font-weight:700}
+.size-table .gm-lo{color:var(--bad);font-weight:700}
+.size-table .lead{color:var(--ink-2);white-space:nowrap;font-weight:600}
+.size-table tr.clickable{cursor:pointer}
+.size-table tr.clickable:hover{background:var(--surface-soft)}
+.size-table tr.clickable.on{background:var(--surface-tint)}
+.size-table tr.clickable.on td:first-child{box-shadow:inset 3px 0 var(--blue)}
+.size-table tr.child td{background:#FBFCFE}
+.size-table tr.child td:first-child{padding-left:24px}
+.size-table tr.child td b{font-weight:600;color:var(--ink-2);font-size:10.5px}
+.size-table .barcell{width:130px;min-width:96px;padding-right:14px}
+.size-table .barcell i{
+  display:block;height:8px;border-radius:2px;background:var(--blue);min-width:2px;
+}
+.size-table .barcell i.sub{background:var(--blue2);opacity:.75}
+
+.tag{
+  display:inline-block;padding:2px 7px;border-radius:var(--r-pill);
+  font-size:9px;font-weight:700;white-space:nowrap;
+}
+.tag.t-new{background:#EDEBFA;color:#3C3489}
+.tag.t-up{background:#E7F4EC;color:#1F6B3B}
+.tag.t-down{background:#FCECEC;color:#94222A}
+.tag.t-flat{background:var(--surface-tint);color:var(--ink-2)}
+
+@media (max-width:1280px){
+  .kpi-grid.kpi-8{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .mini-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:900px){
+  .kpi-grid.kpi-8{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mini-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media print{
+  .cat-tabs,.sort-row{display:none!important}
+  .sku-table{max-height:none!important}
+}

@@ -1,0 +1,52 @@
+.kpi-grid.po-kpi{grid-template-columns:repeat(6,minmax(0,1fr))}
+.po-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+
+.sup-table,.price-table{max-height:540px}
+.sup-table table,.price-table table{width:100%;border-collapse:collapse;font-size:11px}
+.sup-table th,.price-table th{
+  position:sticky;top:0;z-index:2;background:var(--surface-tint);color:var(--ink-2);
+  text-transform:uppercase;letter-spacing:.06em;font-size:8.5px;text-align:left;
+  padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.sup-table td,.price-table td{padding:8px 10px;border-bottom:1px solid #EEF0F6;vertical-align:top}
+.sup-table td b,.price-table td b{display:block;color:var(--ink);font-size:11px}
+.sup-table td small,.price-table td small{display:block;margin-top:2px;color:var(--ink-3);font-size:9px}
+.sup-table .num,.price-table .num{text-align:right;white-space:nowrap}
+.sup-table .strong,.price-table .strong{font-weight:700;color:var(--ink)}
+.sup-table .dim,.price-table .dim{color:var(--ink-3)}
+.sup-table .up,.price-table .up{color:var(--good);font-weight:600}
+.sup-table .down,.price-table .down{color:var(--bad);font-weight:600}
+.sup-table .warn{color:var(--amber);font-weight:700}
+.sup-table tr.clickable{cursor:pointer}
+.sup-table tr.clickable:hover{background:var(--surface-soft)}
+.sup-table tr.clickable.on{background:var(--surface-tint)}
+.sup-table tr.clickable.on td:first-child{box-shadow:inset 3px 0 var(--blue)}
+.sup-table tr.child td{background:#FBFCFE}
+.sup-table tr.child td:first-child{padding-left:24px}
+.sup-table tr.child td b{font-weight:600;font-size:10.5px;color:var(--ink-2)}
+
+.note-panel{border-left:3px solid var(--amber)}
+.note-panel b{display:block;margin-bottom:5px;font-size:12px;color:var(--ink)}
+.note-panel p{margin:0;font-size:11px;line-height:1.6;color:var(--muted)}
+.note-panel i{font-style:normal;font-weight:600;color:var(--ink-2)}
+
+@media (max-width:1280px){.kpi-grid.po-kpi{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:900px){.kpi-grid.po-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{.po-tabs{display:none!important}.sup-table,.price-table{max-height:none!important}}
+
+/* NCC theo từng ngành — lưới thẻ nhỏ như mẫu 2 */
+.sup-by-ng{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ng-card{border:1px solid var(--line);border-radius:var(--r-control);background:var(--surface-soft);padding:11px 12px}
+.ng-title{
+  display:block;margin-bottom:8px;font-size:10px;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-2);
+}
+.ng-card table{width:100%;border-collapse:collapse;font-size:10.5px}
+.ng-card th{
+  text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);
+  font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+}
+.ng-card td{padding:5px 6px;border-bottom:1px solid #EEF0F6;color:var(--ink-2)}
+.ng-card .num{text-align:right;white-space:nowrap}
+.ng-card .strong{font-weight:700;color:var(--ink)}
+@media (max-width:1100px){.sup-by-ng{grid-template-columns:1fr}}

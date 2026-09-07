@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.seltd.scdash.etl</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>-u</string>
+    <string>/Users/louisle/Claude/seltd-scdash/scripts/shopee/run_all.py</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/louisle/Claude/seltd-scdash/scripts/shopee</string>
+  <key>EnvironmentVariables</key>
+  <dict><key>PYTHONPATH</key><string>/Users/louisle/Library/Python/3.9/lib/python/site-packages</string></dict>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>20</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
+  <key>StandardOutPath</key><string>/Users/louisle/Claude/seltd-scdash/logs/etl.log</string>
+  <key>StandardErrorPath</key><string>/Users/louisle/Claude/seltd-scdash/logs/etl.err.log</string>
+  <key>RunAtLoad</key><false/>
+</dict>
+</plist>
