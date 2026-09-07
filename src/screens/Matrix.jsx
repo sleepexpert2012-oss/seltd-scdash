@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import master from '../data/master.json'
+import master from '../data/master'
 import {
   MONTHS, pickRows, groupBy, comparePeriod, growth,
   SKU_MAP, CLASS_TREND, SKU_TREND, IS_MOCK,

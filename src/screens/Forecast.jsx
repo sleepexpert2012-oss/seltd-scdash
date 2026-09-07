@@ -3,7 +3,7 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Cell, Legend,
 } from 'recharts'
-import master from '../data/master.json'
+import master from '../data/master'
 import {
   MONTHS, pickRows, groupBy, forecastRestOfYear, forecastNext6, unitEconomics,
   CUR_YEAR, PREV_YEAR, LAST_ACTUAL_MONTH, SKU_MAP, SKU_DEMAND, VMIN, STOCK_BY_SKU, IS_MOCK,

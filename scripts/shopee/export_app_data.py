@@ -73,6 +73,41 @@ def main():
         fee = rd(cur, "select * from shopee.mart_fee_month order by ym")
         ads = rd(cur, "select * from shopee.mart_ads_month order by ym")
         ret = rd(cur, "select * from shopee.mart_return_month order by ym")
+        # --- Cơ sở hạ tầng: trạng thái từng bảng + nhật ký ETL ---
+        infra_tables = rd(cur, """
+            select 'raw_order' t, count(*)::int n,
+                   min(create_time)::text lo, max(create_time)::text hi, max(fetched_at)::text pulled
+              from shopee.raw_order
+            union all select 'raw_escrow', count(*)::int, null, null, max(fetched_at)::text from shopee.raw_escrow
+            union all select 'raw_return', count(*)::int, min(create_time)::text, max(create_time)::text,
+                   max(fetched_at)::text from shopee.raw_return
+            union all select 'raw_item', count(*)::int, null, null, max(fetched_at)::text from shopee.raw_item
+            union all select 'raw_model', count(*)::int, null, null, max(fetched_at)::text from shopee.raw_model
+            union all select 'raw_stock_snapshot', count(*)::int, min(snap_date)::text, max(snap_date)::text,
+                   max(fetched_at)::text from shopee.raw_stock_snapshot
+            union all select 'raw_ads_shop_daily', count(*)::int, min(stat_date)::text, max(stat_date)::text,
+                   max(fetched_at)::text from shopee.raw_ads_shop_daily
+            union all select 'raw_ads_campaign_daily', count(*)::int, min(stat_date)::text, max(stat_date)::text,
+                   max(fetched_at)::text from shopee.raw_ads_campaign_daily
+            union all select 'raw_ads_campaign', count(*)::int, null, null, max(fetched_at)::text from shopee.raw_ads_campaign
+            union all select 'raw_warehouse', count(*)::int, null, null, max(fetched_at)::text from shopee.raw_warehouse
+            union all select 'raw_shop', count(*)::int, null, null, max(fetched_at)::text from shopee.raw_shop
+            union all select 'sku_alias', count(*)::int, null, null, null from shopee.sku_alias
+            union all select 'dim_sku', count(*)::int, null, null, max(loaded_at)::text from shopee.dim_sku
+            order by 1""")
+        infra_runs = rd(cur, """
+            select id, job, started_at::text, finished_at::text, rows_in, ok, note,
+                   window_from::text, window_to::text,
+                   round(extract(epoch from (finished_at - started_at))::numeric, 1) secs
+            from shopee.etl_run order by id desc limit 300""")
+        infra_jobs = rd(cur, """
+            select job,
+                   max(started_at)::text last_run,
+                   max(started_at) filter (where ok) ::text last_ok,
+                   count(*)::int runs,
+                   count(*) filter (where ok = false)::int fails,
+                   sum(rows_in)::int rows_total
+            from shopee.etl_run group by 1 order by 2 desc""")
         span = rd(cur, """select min(create_time at time zone 'Asia/Ho_Chi_Minh')::date a,
                                  max(create_time at time zone 'Asia/Ho_Chi_Minh')::date b,
                                  count(*) n from shopee.raw_order""")[0]
@@ -148,12 +183,44 @@ def main():
            'nganh': clean(mk_nganh), 'campaigns': clean(mk_camp),
            'campaignMonths': clean(mk_camp_m)}
 
+    # nhật ký phiên bản app lấy từ git log — để màn Cơ sở hạ tầng xem app đổi gì khi nào
+    def git_log(n=60):
+        import subprocess
+        root = os.path.abspath(os.path.join(OUT, '..', '..'))
+        try:
+            out = subprocess.run(
+                ['git', '-C', root, 'log', f'-{n}', '--date=iso-strict',
+                 '--pretty=%H%x1f%ad%x1f%an%x1f%s%x1f%b%x1e'],
+                capture_output=True, text=True, timeout=20, check=True).stdout
+        except Exception:
+            return []
+        rows = []
+        for rec in out.split('\x1e'):
+            rec = rec.strip('\n')
+            if not rec.strip():
+                continue
+            f = rec.split('\x1f')
+            if len(f) < 4:
+                continue
+            rows.append({'sha': f[0][:8], 'date': f[1], 'author': f[2],
+                         'subject': f[3], 'body': (f[4].strip() if len(f) > 4 else '')})
+        return rows
+
+    infra = {'meta': {**meta, 'note': ('Trạng thái kho dữ liệu và nhật ký ETL, chụp tại thời điểm '
+                                       'kết xuất. App là trang tĩnh nên số liệu ở đây phản ánh '
+                                       'lần kết xuất/deploy gần nhất, không phải thời gian thực.')},
+             'exportedAt': now,
+             'tables': clean(infra_tables), 'runs': clean(infra_runs),
+             'jobs': clean(infra_jobs), 'commits': git_log(),
+             'schedule': ['06:00', '12:00', '20:00'],
+             'master': {'skus': len(json.load(open(os.path.join(OUT, 'master.json')))['skus'])}}
+
     for name, obj in (('sales', sales), ('sales_daily', daily), ('platform', plat),
-                      ('stock', stock), ('marketing', mkt)):
+                      ('stock', stock), ('marketing', mkt), ('infra', infra)):
         p = os.path.join(OUT, name + '.json')
         with open(p, 'w') as f:
             json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))
-        print(f'{name+".json":20} {len(obj.get("rows") or obj.get("fees") or obj.get("items") or []):>6} dòng  '
+        print(f'{name+".json":20} {len(obj.get("rows") or obj.get("fees") or obj.get("items") or obj.get("runs") or []):>6} dòng  '
               f'{os.path.getsize(p)/1024:>7.0f} KB')
     print(f'\n{len(months)} tháng: {months[0]} → {months[-1]} | {span["n"]} đơn')
 

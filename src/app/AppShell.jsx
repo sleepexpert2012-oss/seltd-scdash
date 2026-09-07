@@ -5,7 +5,7 @@ import FilterBar, { defaultFilters } from './FilterBar'
 import ErrorBoundary from './ErrorBoundary'
 import { DrillProvider } from './drill'
 import ClassModal from '../screens/ClassModal'
-import master from '../data/master.json'
+import master from '../data/master'
 import sales from '../data/sales.json'
 import stock from '../data/stock.json'
 import Overview from '../screens/Overview'
@@ -16,10 +16,11 @@ import Supplier from '../screens/Supplier'
 import Stock from '../screens/Stock'
 import Forecast from '../screens/Forecast'
 import Marketing from '../screens/Marketing'
+import Infra from '../screens/Infra'
 import CalendarScreen from '../screens/Calendar'
 import './shell.css'
 
-const NO_FILTER_PAGES = ['guide']
+const NO_FILTER_PAGES = ['guide', 'infra']
 
 function readHash() {
   const id = window.location.hash.replace('#/', '')
@@ -125,6 +126,7 @@ export default function AppShell({ onLogout }) {
               : page === 'supplier' ? <Supplier filters={filters} setFilters={setFilters} />
               : page === 'stock' ? <Stock filters={filters} setFilters={setFilters} />
               : page === 'forecast' ? <Forecast filters={filters} />
+              : page === 'infra' ? <Infra />
               : <ScreenPlaceholder page={current} filters={filters} />}
           </ErrorBoundary>
         </div>

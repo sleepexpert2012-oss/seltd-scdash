@@ -26,8 +26,9 @@ export const NAV = [
     ],
   },
   {
-    label: 'Tài liệu',
+    label: 'Tài liệu & Hệ thống',
     items: [
+      { id: 'infra', label: 'Cơ sở hạ tầng', icon: 'factory', screen: 10 },
       { id: 'guide', label: 'Giới thiệu & Định nghĩa', icon: 'book', screen: null },
     ],
   },

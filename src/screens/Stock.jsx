@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
-import master from '../data/master.json'
+import master from '../data/master'
 import {
   stockPlan, STATUS, WAREHOUSES, STOCK_AS_OF, STOCK_AS_OF_DATE, STOCK_IS_MOCK, Z_SERVICE, VMIN,
   LAST_RECEIPT, setLeadTime, resetLeadTime, LT_OVERRIDE,

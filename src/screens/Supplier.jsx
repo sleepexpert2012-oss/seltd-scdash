@@ -3,7 +3,7 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Cell, Legend,
 } from 'recharts'
-import master from '../data/master.json'
+import master from '../data/master'
 import { SKU_MAP } from '../lib/metrics'
 import { trieu, num, pct } from '../lib/format'
 import './supplier.css'

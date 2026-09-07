@@ -1,4 +1,4 @@
-import master from '../data/master.json'
+import master from '../data/master'
 import sales from '../data/sales.json'
 import stock from '../data/stock.json'
 import daily from '../data/sales_daily.json'
