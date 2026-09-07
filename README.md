@@ -2,13 +2,17 @@
 
 Ứng dụng phân tích bán hàng & chuỗi cung ứng nội bộ của SELTD (Sleep Expert).
 
-## ⚠️ Dữ liệu trong repo này là dữ liệu kinh doanh thật
+**Bản chạy: https://louisle-hash.github.io/seltd-scdash/**
+
+## ⚠️ Repo này PUBLIC và chứa dữ liệu kinh doanh thật
 
 `src/data/` chứa **số liệu thật đã tổng hợp**: doanh thu, giá vốn, GM%, giá mua từ
-nhà cung cấp, công nợ, tồn kho và chi phí quảng cáo. Repo để **private**.
-Nếu chuyển sang public thì toàn bộ những số này ai cũng đọc được.
+nhà cung cấp, công nợ, tồn kho và chi phí quảng cáo. Repo đang **public** theo quyết
+định ngày 2026-09-07, nghĩa là những số này ai cũng đọc được.
 
-Không có khoá API nào trong repo — `secrets/` đã bị gitignore.
+Không có khoá API nào trong repo — `secrets/` (partner_key Shopee, access_token,
+mật khẩu DB, service_role key Supabase) đã bị gitignore và đã kiểm tra bundle build
+không lộ khoá nào.
 
 ## Chạy local
 
@@ -39,7 +43,12 @@ Marketing Analysis · Nhà cung cấp & Mua hàng · Tồn kho & Đặt hàng ·
 
 ## Triển khai
 
-`.github/workflows/deploy.yml` build và đẩy lên GitHub Pages khi push vào `main`.
-GitHub Pages **chỉ chạy được với repo public** ở gói Free — nghĩa là trang web
-và toàn bộ số liệu sẽ công khai. Nếu cần link nội bộ mà không công khai số liệu,
-xem phần "Triển khai nội bộ" trong `INDEX.md`.
+`.github/workflows/deploy.yml` build và đẩy lên GitHub Pages mỗi lần push vào `main`.
+Vite lấy `base` từ biến `PAGES_BASE` (workflow đặt `/<tên-repo>/`) vì Pages phục vụ ở
+đường dẫn con — chạy local vẫn dùng `/`.
+
+Cập nhật số liệu: chạy `python3 scripts/shopee/run_all.py` (hoặc chờ job 3 khung giờ),
+rồi commit `src/data/*.json` và push — Pages tự build lại.
+
+Nếu sau này cần link **chỉ nội bộ mở được**: giữ repo private, deploy qua Cloudflare
+Pages và bật Cloudflare Access giới hạn theo email công ty (miễn phí tới 50 người).
