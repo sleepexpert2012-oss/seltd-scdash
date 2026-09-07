@@ -123,3 +123,15 @@ chi phí ads) là công khai. Khoá API KHÔNG bị lộ — `secrets/` đã git
 Mật khẩu đăng nhập là khoá mềm phía client, không phải bảo mật thật.
 
 Cập nhật số liệu: `python3 scripts/shopee/run_all.py` → commit `src/data/*.json` → push → `./scripts/pages/deploy.sh`.
+
+## Màn hình 10 — Cơ sở hạ tầng (2026-09-07)
+`src/screens/Infra.jsx` + `infra.css` · nav nhóm **Tài liệu & Hệ thống**.
+4 tab: App hoạt động thế nào · Nguồn dữ liệu · Nhật ký · Hạ tầng & lịch chạy.
+
+Dữ liệu: `src/data/infra.json` (trạng thái 13 bảng, 300 dòng `etl_run`, 60 commit git).
+Nhập/kết xuất Excel chạy trong trình duyệt: `src/lib/masterFile.js` (thư viện `xlsx`
+nạp động). Bản Excel nạp vào lưu ở `localStorage` qua `src/data/master.js` — đây là
+điểm truy cập duy nhất tới Master Data, KHÔNG import trực tiếp `master.json` nữa.
+
+Đã kiểm bộ đọc file bằng test đối chiếu với `scripts/extract_master.py`:
+**0 sai lệch trên 2.288 trường SKU và 182 dòng PO.**
