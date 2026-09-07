@@ -111,12 +111,15 @@ Cửa sổ dữ liệu 2026-04 → nay (API ads chỉ lưu ~5 tháng).
 ## Đưa lên mạng (2026-09-07)
 | Mục | Giá trị |
 |---|---|
-| Repo | https://github.com/louisle-hash/seltd-scdash — **PUBLIC** |
-| Bản chạy | https://louisle-hash.github.io/seltd-scdash/ |
-| Deploy | `.github/workflows/deploy.yml` — tự build + đẩy Pages khi push `main` |
+| Repo | https://github.com/sleepexpert2012-oss/seltd-scdash — **PUBLIC** |
+| Bản chạy | https://sleepexpert2012-oss.github.io/seltd-scdash/ |
+| Deploy | `./scripts/pages/deploy.sh` — build rồi đẩy `dist/` lên nhánh `gh-pages` |
+
+Không dùng GitHub Actions vì token account này thiếu scope `workflow`.
+File workflow giữ sẵn ở `scripts/pages/github-actions-deploy.yml.txt`.
 
 ⚠️ Repo public nên toàn bộ `src/data/` (giá vốn, giá mua NCC, công nợ, GM%, tồn kho,
 chi phí ads) là công khai. Khoá API KHÔNG bị lộ — `secrets/` đã gitignore và đã kiểm bundle.
 Mật khẩu đăng nhập là khoá mềm phía client, không phải bảo mật thật.
 
-Cập nhật số liệu: `python3 scripts/shopee/run_all.py` → commit `src/data/*.json` → push.
+Cập nhật số liệu: `python3 scripts/shopee/run_all.py` → commit `src/data/*.json` → push → `./scripts/pages/deploy.sh`.
