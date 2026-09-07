@@ -8,8 +8,9 @@ import {
   stockPlan, STATUS, WAREHOUSES, STOCK_AS_OF, STOCK_AS_OF_DATE, STOCK_IS_MOCK, Z_SERVICE, VMIN,
   LAST_RECEIPT, setLeadTime, resetLeadTime, LT_OVERRIDE,
   STOCK_RAW_BY_SKU, PHANTOM, PHANTOM_SUMMARY, setPhantomBulk, resetPhantom, SKU_MAP,
+  PHANTOM_SHARED, PHANTOM_SHARED_META, PHANTOM_HAS_LOCAL,
 } from '../lib/metrics'
-import { exportRowsXlsx } from '../lib/masterFile'
+import { exportRowsXlsx, exportJson } from '../lib/masterFile'
 import { trieu, num, pct } from '../lib/format'
 import { useDrill } from '../app/drill'
 import './stock.css'
@@ -144,7 +145,7 @@ export default function Stock({ filters, setFilters }) {
           <span>
             {num(PHANTOM_SUMMARY.count)} SKU khai bơm {num(PHANTOM_SUMMARY.declared)} unit ·
             tồn Shopee {num(PHANTOM_SUMMARY.raw)} → <b>tồn thật {num(PHANTOM_SUMMARY.real)}</b>.
-            Mọi con số trên trang này, kế hoạch đặt hàng và màn Forecast đều đã tính trên tồn thật.
+            {' '}Nguồn: <b>{PHANTOM_HAS_LOCAL ? 'bản nháp tại máy này' : 'bản chung của tổ chức'}</b>.
             {PHANTOM_SUMMARY.over > 0 && (
               <em> ⚠ {num(PHANTOM_SUMMARY.over)} unit khai nhiều hơn tồn Shopee đang có — cần soát lại.</em>
             )}
@@ -850,8 +851,11 @@ function PhantomPanel() {
   const [msg, setMsg] = useState('')
   const fileRef = useRef(null)
 
+  const sharedCount = Object.keys(PHANTOM_SHARED).length
+
   const all = useMemo(() => {
-    const skus = new Set([...Object.keys(STOCK_RAW_BY_SKU), ...Object.keys(PHANTOM)])
+    const skus = new Set([...Object.keys(STOCK_RAW_BY_SKU), ...Object.keys(PHANTOM),
+      ...Object.keys(PHANTOM_SHARED)])
     return [...skus].map(sku => {
       const s = SKU_MAP[sku] || {}
       return {
@@ -860,6 +864,7 @@ function PhantomPanel() {
         nganh: s.nganh || '—',
         className: s.className || '—',
         raw: STOCK_RAW_BY_SKU[sku]?.total || 0,
+        shared: PHANTOM_SHARED[sku] || 0,
       }
     }).sort((a, b) => b.raw - a.raw || a.sku.localeCompare(b.sku))
   }, [])
@@ -984,6 +989,37 @@ function PhantomPanel() {
           </div>
         </div>
 
+        <div className={`ph-scope ${PHANTOM_HAS_LOCAL ? 'local' : 'shared'}`}>
+          <div>
+            <b>{PHANTOM_HAS_LOCAL ? '⚑ Máy này đang dùng BẢN NHÁP riêng' : '☁ Đang dùng BẢN CHUNG của tổ chức'}</b>
+            <p>
+              {PHANTOM_HAS_LOCAL ? (
+                <>Số anh lưu chỉ nằm trong trình duyệt máy này — <b>máy khác không thấy</b>.
+                  Muốn cả tổ chức thấy thì bấm <b>Kết xuất phantom.json</b>, thay file
+                  <code>src/data/phantom.json</code> rồi deploy.</>
+              ) : (
+                <>Đang đọc <code>src/data/phantom.json</code> đóng kèm bản build nên mọi máy
+                  thấy cùng con số{sharedCount ? ` (${sharedCount} SKU)` : ' (chưa khai SKU nào)'}.
+                  Gõ số bên dưới sẽ tạo bản nháp riêng cho máy này.</>
+              )}
+            </p>
+          </div>
+          <div className="acts">
+            <button className="btn-primary" onClick={() => exportJson('phantom.json', {
+              meta: {
+                note: PHANTOM_SHARED_META.note,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'Phòng Supply Chain',
+              },
+              items: Object.fromEntries(Object.entries(draft)
+                .map(([k, v]) => [k, Math.round(+v || 0)]).filter(([, v]) => v > 0)),
+            })}>⬇ Kết xuất phantom.json</button>
+            {PHANTOM_HAS_LOCAL && (
+              <button className="xls-btn" onClick={clearAll}>Về bản chung</button>
+            )}
+          </div>
+        </div>
+
         <div className="ph-kpis">
           {K.map(([k, v, u], i) => (
             <div key={k} className={i === 3 ? 'hi' : ''}>
@@ -1026,6 +1062,7 @@ function PhantomPanel() {
               <tr>
                 <th>SKU</th><th>Sản phẩm</th><th>Ngành</th>
                 <th className="num">Tồn Shopee</th>
+                <th className="num">Bản chung</th>
                 <th className="num">Số lượng ảo đã bơm</th>
                 <th className="num">Tồn thật</th>
               </tr>
@@ -1041,6 +1078,9 @@ function PhantomPanel() {
                     <td className="nm" title={r.name}>{r.name}</td>
                     <td>{r.nganh}</td>
                     <td className="num">{num(r.raw)}</td>
+                    <td className={`num sh ${r.shared !== ph ? 'diff' : ''}`}>
+                      {r.shared ? num(r.shared) : '—'}
+                    </td>
                     <td className="num">
                       <input value={draft[r.sku] ?? ''} onChange={e => set(r.sku, e.target.value)}
                         inputMode="numeric" placeholder="0" className={over ? 'bad' : ''} />
@@ -1051,16 +1091,18 @@ function PhantomPanel() {
                   </tr>
                 )
               })}
-              {!rows.length && <tr><td colSpan={6} className="empty">Không có SKU nào khớp</td></tr>}
+              {!rows.length && <tr><td colSpan={7} className="empty">Không có SKU nào khớp</td></tr>}
             </tbody>
           </table>
         </div>
 
         <p className="ph-note">
-          Số khai lưu tại máy này (giống lead time), không đẩy lên server — nên mỗi người
-          dùng tự khai. Cần cả tổ chức dùng chung thì kết xuất Excel rồi nhập lại ở máy khác.
-          Khi một SKU nằm ở nhiều kho, phần ảo được trừ dần từ kho đang nhiều nhất — vì API
-          không cho biết kho nào bị bơm.
+          <b>Hai lớp số:</b> cột <b>Bản chung</b> là <code>src/data/phantom.json</code> trong repo —
+          mọi máy đều thấy. Ô nhập là <b>bản nháp riêng máy này</b>, lưu trong trình duyệt,
+          máy khác KHÔNG thấy. App tĩnh không có server nên muốn đồng bộ phải đưa số vào bản
+          chung: kết xuất <code>phantom.json</code> → thay file → deploy.
+          {' '}Khi một SKU nằm nhiều kho, phần ảo trừ dần từ kho đang nhiều nhất — API không
+          cho biết kho nào bị bơm.
         </p>
       </div>
     </>

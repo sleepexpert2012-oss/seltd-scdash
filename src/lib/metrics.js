@@ -1,6 +1,7 @@
 import master from '../data/master'
 import sales from '../data/sales.json'
 import stock from '../data/stock.json'
+import phantomFile from '../data/phantom.json'
 import daily from '../data/sales_daily.json'
 
 export const MONTHS = sales.months
@@ -362,30 +363,43 @@ export const STOCK_RAW_BY_SKU = (() => {
    đều chạy trên tồn thật. Lưu tại máy như lead time.
    ============================================================ */
 const PH_KEY = 'seltd_phantom'
-const loadPh = () => {
-  try {
-    const o = JSON.parse(localStorage.getItem(PH_KEY) || '{}')
-    const out = {}
-    for (const [k, v] of Object.entries(o)) {
-      const n = Math.round(Number(v))
-      if (Number.isFinite(n) && n > 0) out[k] = n
-    }
-    return out
-  } catch { return {} }
-}
-export let PHANTOM = loadPh()
 
-export function setPhantomBulk(map) {
+const clean = o => {
   const out = {}
-  for (const [k, v] of Object.entries(map || {})) {
+  for (const [k, v] of Object.entries(o || {})) {
     const n = Math.round(Number(v))
     if (Number.isFinite(n) && n > 0) out[k] = n
   }
+  return out
+}
+
+/* BẢN CHUNG: nằm trong repo, đóng kèm bản build -> mọi máy thấy cùng con số.
+   Đây mới là nguồn dùng chung cho cả tổ chức. */
+export const PHANTOM_SHARED = clean(phantomFile.items)
+export const PHANTOM_SHARED_META = phantomFile.meta || {}
+
+/* BẢN NHÁP TẠI MÁY: lưu localStorage, chỉ máy đó thấy. Dùng để thử nhanh
+   trước khi chốt. Có nháp thì dùng nháp, không có thì dùng bản chung. */
+const loadPh = () => {
+  try {
+    const raw = localStorage.getItem(PH_KEY)
+    return raw ? clean(JSON.parse(raw)) : null
+  } catch { return null }
+}
+export let PHANTOM_LOCAL = loadPh()
+export const PHANTOM_HAS_LOCAL = PHANTOM_LOCAL !== null
+export let PHANTOM = PHANTOM_LOCAL || PHANTOM_SHARED
+
+export function setPhantomBulk(map) {
+  const out = clean(map)
+  PHANTOM_LOCAL = out
   PHANTOM = out
   try { localStorage.setItem(PH_KEY, JSON.stringify(out)) } catch { /* bỏ qua */ }
 }
+/* Bỏ bản nháp tại máy -> quay về dùng bản chung của tổ chức */
 export function resetPhantom() {
-  PHANTOM = {}
+  PHANTOM_LOCAL = null
+  PHANTOM = PHANTOM_SHARED
   try { localStorage.removeItem(PH_KEY) } catch { /* bỏ qua */ }
 }
 

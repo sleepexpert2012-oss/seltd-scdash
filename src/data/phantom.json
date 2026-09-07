@@ -1,0 +1,8 @@
+{
+ "meta": {
+  "note": "Số lượng tồn ảo đã bơm trên Shopee, theo SKU. Đây là BẢN CHUNG cho cả tổ chức: nằm trong repo nên mọi máy mở app đều thấy cùng con số. Cập nhật: khai ở màn Tồn kho > tab Tồn ảo, bấm Kết xuất phantom.json, thay file này rồi deploy.",
+  "updatedAt": null,
+  "updatedBy": null
+ },
+ "items": {}
+}

@@ -3,6 +3,7 @@ import infra from '../data/infra.json'
 import sales from '../data/sales.json'
 import stock from '../data/stock.json'
 import mkt from '../data/marketing.json'
+import phantom from '../data/phantom.json'
 import master, {
   MASTER_BUNDLED, MASTER_IS_OVERRIDE, MASTER_OVERRIDE_AT,
   setMasterOverride, clearMasterOverride,
@@ -242,7 +243,9 @@ function FlowTab({ d }) {
               <b>Tồn kho Shopee là tồn ĐÃ BƠM ảo để chạy chiến dịch.</b> Số API trả về cao hơn
               thực tế. Khai số đã bơm ở <b>Tồn kho &amp; Đặt hàng → tab Tồn ảo</b> thì hệ thống
               trừ ra tại nguồn, mọi phép tính tồn kho và kế hoạch đặt hàng chạy trên tồn thật.
-              Số khai lưu tại từng máy.
+              Có <b>hai lớp</b>: bản chung <code>src/data/phantom.json</code> mọi máy đều thấy,
+              và bản nháp lưu trong trình duyệt chỉ máy đó thấy — app tĩnh không có server nên
+              muốn đồng bộ phải đưa số vào bản chung rồi deploy.
             </li>
             <li>
               <b>Mật khẩu đăng nhập là khoá mềm.</b> Nó nằm trong mã trang nên chỉ chống mở
@@ -449,6 +452,10 @@ function SourcesTab({ d, imp, setImp, busy, fileRef, onPick }) {
                 ['marketing.json', 'Quảng cáo: chiến dịch · sản phẩm · ngành', mkt.items.length,
                   `${mkt.months[0]?.ym} → ${mkt.months[mkt.months.length - 1]?.ym}`, mkt, 'mkt'],
                 ['platform.json', 'Phí sàn 17 khoản · ads · đơn hoàn', null, '', null, 'plat'],
+                ['phantom.json', 'Tồn ảo đã bơm trên Shopee — BẢN CHUNG cho cả tổ chức',
+                  Object.keys(phantom.items || {}).length,
+                  phantom.meta?.updatedAt ? `cập nhật ${fmt(phantom.meta.updatedAt)}` : 'chưa khai SKU nào',
+                  phantom, 'phantom'],
                 ['infra.json', 'Trạng thái bảng · nhật ký ETL · phiên bản app', (infra.runs || []).length,
                   '', infra, 'infra'],
               ].map(([f, desc, n, range, obj]) => (
