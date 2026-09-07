@@ -135,3 +135,11 @@ nạp động). Bản Excel nạp vào lưu ở `localStorage` qua `src/data/mas
 
 Đã kiểm bộ đọc file bằng test đối chiếu với `scripts/extract_master.py`:
 **0 sai lệch trên 2.288 trường SKU và 182 dòng PO.**
+
+## Tồn ảo trên Shopee (2026-09-07)
+Shopee được bơm tồn để chạy chiến dịch → tồn API cao hơn thực tế.
+`metrics.js`: `STOCK_RAW_BY_SKU` (nguyên bản) → `STOCK_BY_SKU` = tồn Shopee − `PHANTOM`.
+Mọi tính toán phía sau đọc `STOCK_BY_SKU` nên tự động chạy trên tồn thật.
+Khai báo ở **Tồn kho & Đặt hàng → tab ⚗ Tồn ảo** (nhập/kết xuất Excel), lưu
+`localStorage` key `seltd_phantom`. SKU nhiều kho: trừ dần từ kho nhiều nhất.
+Khai vượt: tồn về 0, không cho âm, có cảnh báo.
