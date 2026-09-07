@@ -2,7 +2,7 @@
 
 Ứng dụng phân tích bán hàng & chuỗi cung ứng nội bộ của SELTD (Sleep Expert).
 
-**Bản chạy: https://louisle-hash.github.io/seltd-scdash/**
+**Bản chạy: https://sleepexpert2012-oss.github.io/seltd-scdash/**
 
 ## ⚠️ Repo này PUBLIC và chứa dữ liệu kinh doanh thật
 
@@ -43,12 +43,23 @@ Marketing Analysis · Nhà cung cấp & Mua hàng · Tồn kho & Đặt hàng ·
 
 ## Triển khai
 
-`.github/workflows/deploy.yml` build và đẩy lên GitHub Pages mỗi lần push vào `main`.
-Vite lấy `base` từ biến `PAGES_BASE` (workflow đặt `/<tên-repo>/`) vì Pages phục vụ ở
+Deploy bằng `scripts/pages/deploy.sh`: build rồi đẩy `dist/` lên nhánh `gh-pages`,
+GitHub Pages phục vụ từ nhánh đó.
+
+```bash
+./scripts/pages/deploy.sh
+```
+
+Vite lấy `base` từ biến `PAGES_BASE` (script đặt `/<tên-repo>/`) vì Pages phục vụ ở
 đường dẫn con — chạy local vẫn dùng `/`.
 
-Cập nhật số liệu: chạy `python3 scripts/shopee/run_all.py` (hoặc chờ job 3 khung giờ),
-rồi commit `src/data/*.json` và push — Pages tự build lại.
+Không dùng GitHub Actions vì token của account này thiếu scope `workflow`, GitHub từ
+chối nhận file `.github/workflows/*`. Muốn chuyển sang tự build khi push thì chạy
+`gh auth refresh -h github.com -u sleepexpert2012-oss -s workflow` rồi copy
+`scripts/pages/github-actions-deploy.yml.txt` sang `.github/workflows/deploy.yml`.
+
+Cập nhật số liệu: `python3 scripts/shopee/run_all.py` → commit `src/data/*.json`
+→ push → `./scripts/pages/deploy.sh`.
 
 Nếu sau này cần link **chỉ nội bộ mở được**: giữ repo private, deploy qua Cloudflare
 Pages và bật Cloudflare Access giới hạn theo email công ty (miễn phí tới 50 người).
