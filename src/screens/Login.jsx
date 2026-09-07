@@ -30,7 +30,7 @@ export default function Login({ onSuccess }) {
     <div className="lg-wrap">
       <div className="lg-card">
         <header className="lg-head">
-          <img src="/logo.png" alt="Sleep Expert" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Sleep Expert" />
           <div>
             <span>SELTD · SUPPLY CHAIN</span>
             <h1>Supply Chain Dashboard</h1>

@@ -59,7 +59,7 @@ export default function AppShell({ onLogout }) {
     <div className="app">
       <aside className={'sidebar' + (navOpen ? ' open' : '')}>
         <div className="brand">
-          <img src="/logo.png" alt="Sleep Expert" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Sleep Expert" />
           <div>
             <strong>Supply Chain Dashboard</strong>
             <span>SELTD · Nội bộ</span>
