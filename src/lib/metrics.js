@@ -378,8 +378,9 @@ const clean = o => {
 export const PHANTOM_SHARED = clean(phantomFile.items)
 export const PHANTOM_SHARED_META = phantomFile.meta || {}
 
-/* BẢN NHÁP TẠI MÁY: lưu localStorage, chỉ máy đó thấy. Dùng để thử nhanh
-   trước khi chốt. Có nháp thì dùng nháp, không có thì dùng bản chung. */
+/* localStorage 'seltd_phantom' vừa là CACHE của bản trên đám mây (main.jsx ghi
+   vào trước khi mount), vừa là chỗ giữ số khi mất mạng. Có giá trị thì dùng,
+   không có (chưa từng đồng bộ được) thì rơi về file phantom.json trong repo. */
 const loadPh = () => {
   try {
     const raw = localStorage.getItem(PH_KEY)

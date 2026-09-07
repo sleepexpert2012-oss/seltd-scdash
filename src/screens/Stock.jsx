@@ -11,6 +11,21 @@ import {
   PHANTOM_SHARED, PHANTOM_SHARED_META, PHANTOM_HAS_LOCAL,
 } from '../lib/metrics'
 import { exportRowsXlsx, exportJson } from '../lib/masterFile'
+import {
+  pushPhantom, fetchPhantom, fetchPhantomLog, cloudMeta, deviceName, setDeviceName,
+} from '../lib/cloud'
+
+/* đọc một lần lúc dựng module: dùng cho dải cảnh báo ở đầu màn */
+const CLOUD = cloudMeta()
+
+const fmtTime = s => {
+  if (!s) return '—'
+  const d = new Date(String(s).replace(' ', 'T'))
+  return isNaN(d) ? '—' : d.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit',
+    year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
 import { trieu, num, pct } from '../lib/format'
 import { useDrill } from '../app/drill'
 import './stock.css'
@@ -145,7 +160,8 @@ export default function Stock({ filters, setFilters }) {
           <span>
             {num(PHANTOM_SUMMARY.count)} SKU khai bơm {num(PHANTOM_SUMMARY.declared)} unit ·
             tồn Shopee {num(PHANTOM_SUMMARY.raw)} → <b>tồn thật {num(PHANTOM_SUMMARY.real)}</b>.
-            {' '}Nguồn: <b>{PHANTOM_HAS_LOCAL ? 'bản nháp tại máy này' : 'bản chung của tổ chức'}</b>.
+            {' '}Nguồn: <b>{CLOUD?.ok === false ? 'lưu tạm tại máy (mất kết nối đám mây)' : 'đám mây, dùng chung mọi máy'}</b>
+            {CLOUD?.at ? <> · sửa cuối {fmtTime(CLOUD.at)}{CLOUD.by ? ` bởi ${CLOUD.by}` : ''}</> : null}.
             {PHANTOM_SUMMARY.over > 0 && (
               <em> ⚠ {num(PHANTOM_SUMMARY.over)} unit khai nhiều hơn tồn Shopee đang có — cần soát lại.</em>
             )}
@@ -849,6 +865,10 @@ function PhantomPanel() {
   const [view, setView] = useState('stock')   // stock | declared | all
   const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState('')
+  const [meta, setMeta] = useState(() => cloudMeta())
+  const [dev, setDev] = useState(() => deviceName())
+  const [log, setLog] = useState(null)
   const fileRef = useRef(null)
 
   const sharedCount = Object.keys(PHANTOM_SHARED).length
@@ -902,11 +922,61 @@ function PhantomPanel() {
 
   const set = (sku, v) => setDraft(d => ({ ...d, [sku]: v.replace(/[^\d]/g, '') }))
 
-  const apply = () => {
-    setPhantomBulk(Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, +v || 0])))
-    location.reload()
+  const items = () => Object.fromEntries(
+    Object.entries(draft).map(([k, v]) => [k, Math.round(+v || 0)]).filter(([, v]) => v > 0))
+
+  /* Lưu = ghi lên Supabase rồi tải lại để mọi phép tính chạy trên số mới.
+     Ghi thất bại thì KHÔNG lưu ngầm ở máy: như vậy sẽ tạo ra tình trạng máy này
+     một số, máy khác một số mà không ai biết. Báo lỗi và để người dùng thử lại. */
+  const apply = async () => {
+    setBusy('save'); setMsg('')
+    try {
+      const r = await pushPhantom(items(), dev)
+      setMsg(`Đã lưu lên đám mây: ${num(r?.n_items || 0)} SKU · ${num(r?.n_units || 0)} unit. Đang tải lại...`)
+      setTimeout(() => location.reload(), 600)
+    } catch (e) {
+      setBusy('')
+      setMsg('❌ Không lưu được lên đám mây: ' + String(e.message || e)
+        + ' — số chưa được ghi, kiểm tra mạng rồi bấm lại.')
+    }
   }
-  const clearAll = () => { resetPhantom(); location.reload() }
+  const clearAll = async () => {
+    setBusy('clear'); setMsg('')
+    try {
+      await pushPhantom({}, dev)
+      setTimeout(() => location.reload(), 400)
+    } catch (e) {
+      setBusy('')
+      setMsg('❌ Không xoá được trên đám mây: ' + String(e.message || e))
+    }
+  }
+  const reloadFromCloud = async () => {
+    setBusy('pull'); setMsg('')
+    try {
+      const c = await fetchPhantom()
+      setDraft(Object.fromEntries(Object.entries(c.items).map(([k, v]) => [k, String(v)])))
+      setMeta({ at: c.at, by: c.by, ok: true })
+      setMsg(`Đã tải lại từ đám mây: ${num(Object.keys(c.items).length)} SKU.`)
+    } catch (e) {
+      setMsg('❌ Không tải được: ' + String(e.message || e))
+    } finally { setBusy('') }
+  }
+  const openLog = async () => {
+    setBusy('log')
+    try { setLog(await fetchPhantomLog(30)) }
+    catch (e) { setMsg('❌ Không đọc được lịch sử: ' + String(e.message || e)) }
+    finally { setBusy('') }
+  }
+  const restore = async (row) => {
+    setBusy('save'); setMsg('')
+    try {
+      await pushPhantom(row.payload || {}, dev + ' (khôi phục)')
+      setTimeout(() => location.reload(), 500)
+    } catch (e) {
+      setBusy('')
+      setMsg('❌ Không khôi phục được: ' + String(e.message || e))
+    }
+  }
 
   async function onPick(e) {
     const f = e.target.files?.[0]
@@ -989,34 +1059,45 @@ function PhantomPanel() {
           </div>
         </div>
 
-        <div className={`ph-scope ${PHANTOM_HAS_LOCAL ? 'local' : 'shared'}`}>
+        <div className={`ph-scope ${meta?.ok === false ? 'local' : 'shared'}`}>
           <div>
-            <b>{PHANTOM_HAS_LOCAL ? '⚑ Máy này đang dùng BẢN NHÁP riêng' : '☁ Đang dùng BẢN CHUNG của tổ chức'}</b>
+            <b>
+              {meta?.ok === false
+                ? '⚠ Không kết nối được đám mây — đang dùng số lưu tạm tại máy'
+                : '☁ Đồng bộ qua đám mây — mọi máy thấy cùng con số'}
+            </b>
             <p>
-              {PHANTOM_HAS_LOCAL ? (
-                <>Số anh lưu chỉ nằm trong trình duyệt máy này — <b>máy khác không thấy</b>.
-                  Muốn cả tổ chức thấy thì bấm <b>Kết xuất phantom.json</b>, thay file
-                  <code>src/data/phantom.json</code> rồi deploy.</>
+              {meta?.ok === false ? (
+                <>Lần đồng bộ gần nhất: {meta?.syncedAt ? fmtTime(meta.syncedAt) : 'chưa từng'}.
+                  Số đang hiển thị là bản lưu tạm ở trình duyệt này (hoặc
+                  <code>src/data/phantom.json</code> nếu chưa có). Có mạng thì bấm
+                  <b> Tải lại từ đám mây</b>. Lưu ý: khi mất mạng, bấm Lưu sẽ báo lỗi và
+                  KHÔNG ghi ngầm — để tránh mỗi máy một số mà không ai biết.</>
               ) : (
-                <>Đang đọc <code>src/data/phantom.json</code> đóng kèm bản build nên mọi máy
-                  thấy cùng con số{sharedCount ? ` (${sharedCount} SKU)` : ' (chưa khai SKU nào)'}.
-                  Gõ số bên dưới sẽ tạo bản nháp riêng cho máy này.</>
+                <>Số lưu trên Supabase, máy khác mở app là thấy ngay, không cần deploy.
+                  {meta?.at
+                    ? <> Lần sửa cuối: <b>{fmtTime(meta.at)}</b>{meta.by ? <> bởi <b>{meta.by}</b></> : null}.</>
+                    : <> Chưa có ai khai SKU nào.</>}
+                  {' '}Mọi lần ghi đều lưu vết trong lịch sử và <b>khôi phục lại được</b>.</>
               )}
             </p>
+            <label className="ph-dev">
+              Tên máy ghi vào lịch sử
+              <input value={dev} onChange={e => { setDev(e.target.value); setDeviceName(e.target.value) }}
+                placeholder="VD: Máy phòng mua hàng" />
+            </label>
           </div>
           <div className="acts">
-            <button className="btn-primary" onClick={() => exportJson('phantom.json', {
-              meta: {
-                note: PHANTOM_SHARED_META.note,
-                updatedAt: new Date().toISOString(),
-                updatedBy: 'Phòng Supply Chain',
-              },
-              items: Object.fromEntries(Object.entries(draft)
-                .map(([k, v]) => [k, Math.round(+v || 0)]).filter(([, v]) => v > 0)),
-            })}>⬇ Kết xuất phantom.json</button>
-            {PHANTOM_HAS_LOCAL && (
-              <button className="xls-btn" onClick={clearAll}>Về bản chung</button>
-            )}
+            <button className="xls-btn" disabled={!!busy} onClick={reloadFromCloud}>
+              {busy === 'pull' ? 'Đang tải...' : '⟳ Tải lại từ đám mây'}
+            </button>
+            <button className="xls-btn" disabled={!!busy} onClick={openLog}>
+              {busy === 'log' ? 'Đang mở...' : '☰ Lịch sử thay đổi'}
+            </button>
+            <button className="xls-btn" onClick={() => exportJson('phantom.json', {
+              meta: { note: PHANTOM_SHARED_META.note, updatedAt: new Date().toISOString(), updatedBy: dev },
+              items: items(),
+            })}>⬇ Kết xuất JSON</button>
           </div>
         </div>
 
@@ -1048,11 +1129,11 @@ function PhantomPanel() {
             placeholder="Tìm SKU hoặc tên sản phẩm..." />
           <span className="ph-count">{rows.length} SKU</span>
           <span className="spacer" />
-          <button className="btn-primary" disabled={!dirty} onClick={apply}>
-            {dirty ? 'Lưu & áp dụng' : 'Đã lưu'}
+          <button className="btn-primary" disabled={!dirty || !!busy} onClick={apply}>
+            {busy === 'save' ? 'Đang lưu...' : dirty ? '☁ Lưu lên đám mây' : 'Đã lưu'}
           </button>
-          <button className="xls-btn" disabled={!PHANTOM_SUMMARY.on} onClick={clearAll}>
-            Xoá hết khai báo
+          <button className="xls-btn" disabled={!PHANTOM_SUMMARY.on || !!busy} onClick={clearAll}>
+            {busy === 'clear' ? 'Đang xoá...' : 'Xoá hết khai báo'}
           </button>
         </div>
 
@@ -1096,13 +1177,48 @@ function PhantomPanel() {
           </table>
         </div>
 
+        {log && (
+          <div className="ph-log">
+            <div className="hd">
+              <b>Lịch sử thay đổi trên đám mây</b>
+              <span>Bảng lịch sử chỉ ghi thêm, không ai xoá được — nên nếu số bị sửa sai
+                thì luôn khôi phục lại được</span>
+              <button className="lnk" onClick={() => setLog(null)}>Đóng</button>
+            </div>
+            <div className="m2-tablewrap">
+              <table className="ph-table">
+                <thead>
+                  <tr><th>Thời điểm</th><th>Máy</th><th>Việc</th>
+                    <th className="num">SKU</th><th className="num">Unit</th><th /></tr>
+                </thead>
+                <tbody>
+                  {log.map(r => (
+                    <tr key={r.id}>
+                      <td className="sm">{fmtTime(r.at)}</td>
+                      <td>{r.actor || '—'}</td>
+                      <td>{r.action === 'clear' ? 'Xoá hết' : 'Lưu'}</td>
+                      <td className="num">{num(r.items)}</td>
+                      <td className="num">{num(r.units)}</td>
+                      <td><button className="lnk" disabled={!!busy}
+                        onClick={() => restore(r)}>Khôi phục về mốc này</button></td>
+                    </tr>
+                  ))}
+                  {!log.length && <tr><td colSpan={6} className="empty">Chưa có thay đổi nào</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <p className="ph-note">
-          <b>Hai lớp số:</b> cột <b>Bản chung</b> là <code>src/data/phantom.json</code> trong repo —
-          mọi máy đều thấy. Ô nhập là <b>bản nháp riêng máy này</b>, lưu trong trình duyệt,
-          máy khác KHÔNG thấy. App tĩnh không có server nên muốn đồng bộ phải đưa số vào bản
-          chung: kết xuất <code>phantom.json</code> → thay file → deploy.
+          Số lưu trên <b>Supabase</b>, dùng chung cho mọi máy, không cần deploy. Cột
+          <b> Bản chung</b> là <code>src/data/phantom.json</code> trong repo — chỉ dùng làm
+          bản dự phòng khi chưa từng đồng bộ được.
           {' '}Khi một SKU nằm nhiều kho, phần ảo trừ dần từ kho đang nhiều nhất — API không
           cho biết kho nào bị bơm.
+          {' '}<b>Lưu ý bảo mật:</b> app không có đăng nhập nên khoá gọi đám mây là công khai.
+          Phía database đã siết: chỉ đọc/ghi được đúng bảng tồn ảo (dữ liệu đơn hàng, giá vốn
+          KHÔNG chạm tới được), mọi lần ghi đều lưu vết và khôi phục lại được.
         </p>
       </div>
     </>
