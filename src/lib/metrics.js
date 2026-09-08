@@ -342,15 +342,35 @@ export const SKU_DEMAND = (() => {
 
 /* Tồn theo SKU và theo kho */
 /* Tồn NGUYÊN BẢN theo Shopee — chưa trừ phần bơm ảo */
+/* Kho bán hàng vs kho lưu trữ: "Kho hàng lỗi" (WH04, type 'Kho lưu trữ') KHÔNG
+   phải hàng bán được. Trước đây nó được cộng vào tồn khả dụng nên chạy vào cả
+   điểm đặt hàng, số tháng bán còn, tồn chết và vốn tồn — tức hàng lỗi được coi
+   như hàng bán được. Hiện chỉ 2 unit nên sai số nhỏ, nhưng sai nguyên tắc.
+   Từ đây `total` chỉ gồm kho bán hàng; hàng ở kho lưu trữ đếm riêng ở `store`. */
+export const SELL_WH = new Set(
+  stock.warehouses.filter(w => w.type === 'Kho bán hàng').map(w => w.code)
+)
+
 export const STOCK_RAW_BY_SKU = (() => {
   const out = {}
   for (const r of stock.rows) {
-    const t = out[r.sku] || { total: 0, byWh: {} }
-    t.total += r.qty
+    const t = out[r.sku] || { total: 0, store: 0, byWh: {} }
+    if (SELL_WH.has(r.wh)) t.total += r.qty
+    else t.store += r.qty
     t.byWh[r.wh] = (t.byWh[r.wh] || 0) + r.qty
     out[r.sku] = t
   }
   return out
+})()
+
+/* Tổng hàng nằm ở kho lưu trữ — để màn Tồn kho nói rõ đã loại khỏi tồn khả dụng */
+export const STORE_ONLY = (() => {
+  let qty = 0, value = 0
+  for (const [sku, t] of Object.entries(STOCK_RAW_BY_SKU)) {
+    qty += t.store
+    value += t.store * (SKU_MAP[sku]?.unitCost || 0)
+  }
+  return { qty, value }
 })()
 
 /* ============================================================
@@ -412,25 +432,30 @@ export const STOCK_BY_SKU = (() => {
   for (const [sku, t] of Object.entries(STOCK_RAW_BY_SKU)) {
     const ph = PHANTOM[sku] || 0
     if (!ph) {
-      out[sku] = { total: t.total, byWh: { ...t.byWh }, raw: t.total, phantom: 0, over: 0 }
+      out[sku] = { total: t.total, store: t.store, byWh: { ...t.byWh },
+                   raw: t.total, phantom: 0, over: 0 }
       continue
     }
+    /* Trừ tồn ảo chỉ trên kho BÁN HÀNG (hàng ở kho lỗi không bao giờ được
+       bơm lên Shopee), trừ dần từ kho nhiều hàng nhất. */
     let left = ph
-    const byWh = {}
-    for (const [wh, q] of Object.entries(t.byWh).sort((a, b) => b[1] - a[1])) {
+    const byWh = { ...t.byWh }
+    for (const [wh, q] of Object.entries(t.byWh)
+      .filter(([wh]) => SELL_WH.has(wh))
+      .sort((a, b) => b[1] - a[1])) {
       const cut = Math.min(q, left)
       byWh[wh] = q - cut
       left -= cut
     }
     out[sku] = {
-      total: Math.max(0, t.total - ph), byWh,
+      total: Math.max(0, t.total - ph), store: t.store, byWh,
       raw: t.total, phantom: ph,
       over: left,   // khai nhiều hơn tồn thực có -> cần soát lại
     }
   }
   /* SKU khai ảo nhưng Shopee không còn tồn: vẫn giữ để màn Tồn ảo cảnh báo */
   for (const [sku, ph] of Object.entries(PHANTOM)) {
-    if (!out[sku]) out[sku] = { total: 0, byWh: {}, raw: 0, phantom: ph, over: ph }
+    if (!out[sku]) out[sku] = { total: 0, store: 0, byWh: {}, raw: 0, phantom: ph, over: ph }
   }
   return out
 })()

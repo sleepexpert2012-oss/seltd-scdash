@@ -244,3 +244,11 @@
 .mk-page .recharts-line-curve { filter: drop-shadow(0 2px 3px rgba(217, 119, 6, .26)); }
 .mk-page .recharts-area-curve { filter: drop-shadow(0 2px 3px rgba(53, 62, 153, .2)); }
 .mk-page .recharts-active-dot circle { filter: drop-shadow(0 1px 3px rgba(27, 32, 80, .3)); }
+
+/* In / PDF — cùng quy tắc với màn Lãi lỗ */
+@media print {
+  .mk-page .mk-tabbar, .mk-page .group-ctrl { display: none !important; }
+  .mk-page .m2-tablewrap { overflow: visible !important; border: 0 !important; }
+  .mk-page .m2-panel { break-inside: avoid-page; }
+  .mk-page table { font-size: 9px; }
+}

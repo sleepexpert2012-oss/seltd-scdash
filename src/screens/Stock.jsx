@@ -175,7 +175,8 @@ export default function Stock({ filters, setFilters }) {
         <div><span>Giá vốn tồn kho</span><strong>{trieu(d.value)}</strong><small>triệu · đồng vốn đọng</small></div>
         <div><span>Kho tổng</span><strong>{num(d.whTotals[salesWh[0]?.code] || 0)}</strong><small>{salesWh[0]?.name}</small></div>
         <div><span>Cửa hàng</span><strong>{num(storeTon)}</strong><small>{salesWh.slice(1).map(w => w.name).join(' · ')}</small></div>
-        <div><span>Kho lưu trữ</span><strong>{num(otherTon)}</strong><small>hàng lỗi / chưa xử lý</small></div>
+        <div><span>Kho lưu trữ</span><strong>{num(otherTon)}</strong>
+          <small>hàng lỗi / chưa xử lý — <b>không</b> tính vào tồn khả dụng</small></div>
       </div>
 
       <div className="stt-row">

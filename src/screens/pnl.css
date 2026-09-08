@@ -1,0 +1,183 @@
+/* Màn Lãi lỗ — dùng chung thanh tab / thẻ KPI / khối "Vì sao" với màn Marketing
+   (các class mk-* là dùng chung toàn app), phần riêng của màn này là pl-*. */
+
+.pl-page .m2-panel > .m2-head {
+  display: block;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.pl-page .m2-panel > .m2-head h3 {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .01em;
+  text-transform: none; color: var(--ink); margin-bottom: 3px;
+}
+.pl-page .m2-panel > .m2-head > span {
+  display: block; font-size: 10.5px; line-height: 1.5; color: var(--muted);
+}
+.pl-page .m2-panel > .m2-head .group-ctrl { margin-top: 7px; }
+.pl-page .recharts-line-curve { filter: drop-shadow(0 2px 3px rgba(217, 119, 6, .22)); }
+
+/* ---- tiêu đề + ô lãi lỗ ---- */
+.pl-page > .m2-title { display: flex; align-items: flex-start; gap: 16px; }
+.pl-page > .m2-title > div:first-child { flex: 1 1 auto; min-width: 0; }
+.pl-health {
+  flex: 0 0 auto; min-width: 150px; text-align: right;
+  border-top: 3px solid var(--line); padding: 8px 0 0;
+}
+.pl-health span {
+  display: block; font-size: 9.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+}
+.pl-health b { display: block; font-size: 19px; font-weight: 750; letter-spacing: -.01em; }
+.pl-health i { font-size: 10.5px; font-style: normal; color: var(--muted); }
+.pl-health.t-good { border-top-color: var(--good); }
+.pl-health.t-good b { color: var(--good); }
+.pl-health.t-bad { border-top-color: var(--bad); }
+.pl-health.t-bad b { color: var(--bad); }
+
+.pl-kpis { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1240px) { .pl-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px) { .pl-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+.pl-body { display: flex; flex-direction: column; gap: 14px; }
+.pl-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .pl-row2 { grid-template-columns: 1fr; } }
+
+/* ---- dải cảnh báo ---- */
+.pl-warn {
+  border: 1px solid var(--line); border-left-width: 3px; border-left-color: var(--bad);
+  border-radius: var(--r-control); background: var(--surface); padding: 11px 14px;
+  margin-bottom: 12px;
+}
+.pl-warn.soft { border-left-color: var(--amber); }
+.pl-warn b { font-size: 12.5px; color: var(--ink); }
+.pl-warn p { margin: 5px 0 0; font-size: 11.5px; line-height: 1.55; color: var(--ink-2); }
+.pl-body > .pl-warn { margin-bottom: 0; }
+
+/* ---- thác nước ---- */
+.pl-wf { width: 100%; overflow-x: auto; }
+.pl-wf svg { display: block; width: 100%; min-width: 780px; height: auto; }
+.pl-wf .wf-v { font-size: 11.5px; font-weight: 700; }
+.pl-wf .wf-l { font-size: 10.5px; font-weight: 600; fill: var(--ink-2); }
+.pl-wf .wf-l.pillar { font-weight: 750; fill: var(--ink); }
+.pl-wf .wf-s { font-size: 9.5px; fill: var(--ink-3); }
+
+.pl-note {
+  margin: 10px 0 0; font-size: 10.5px; line-height: 1.55; color: var(--muted);
+  border-top: 1px dashed var(--line); padding-top: 8px;
+}
+.pl-note.warn { color: #9A5B06; border-top-color: var(--amber); }
+.pl-empty {
+  margin: 0; padding: 18px 4px; text-align: center;
+  font-size: 11.5px; color: var(--muted);
+}
+.pl-acts { display: flex; gap: 8px; justify-content: center; padding-bottom: 6px; }
+.pl-acts button, .pl-page .group-ctrl button {
+  height: 27px; padding: 0 11px; border: 1px solid var(--line);
+  border-radius: var(--r-control); background: #fff; color: var(--ink-2);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.pl-acts button:hover, .pl-page .group-ctrl button:hover {
+  background: var(--surface-tint); color: var(--ink);
+}
+
+/* ---- bảng ---- */
+.pl-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.pl-table th {
+  text-align: left; font-size: 9px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--line); padding: 0 8px 6px; white-space: nowrap;
+}
+.pl-table td {
+  padding: 6px 8px; border-bottom: 1px solid var(--border-soft, var(--line));
+  color: var(--ink-2); vertical-align: top;
+}
+.pl-table td b { color: var(--ink); font-weight: 650; }
+.pl-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pl-table .num.b { font-weight: 700; color: var(--ink); }
+.pl-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+.pl-table .sm { font-size: 10.5px; line-height: 1.45; }
+.pl-table .neg { color: var(--bad); }
+.pl-table .pos { color: var(--good); }
+.pl-table .hl { color: var(--bad); font-weight: 700; }
+.pl-table i.note {
+  display: block; font-size: 10px; font-style: normal; color: var(--ink-3);
+  line-height: 1.4; margin-top: 1px;
+}
+.pl-table i.na { font-style: normal; color: var(--ink-3); font-size: 10px; }
+.pl-table tr.loss td { background: rgba(180, 35, 24, .035); }
+.pl-table tfoot td {
+  border-top: 1.5px solid var(--line); border-bottom: 0;
+  font-weight: 700; color: var(--ink); padding-top: 7px;
+}
+.pl-table.clickable tbody tr { cursor: pointer; }
+.pl-table.clickable tbody tr:hover td { background: var(--surface-tint); }
+.pl-table.wide { min-width: 860px; }
+
+.pl-table.recon td { border-bottom: 0; padding: 5px 8px; }
+.pl-table.recon tr.sub td {
+  border-top: 1px solid var(--line); font-weight: 700; color: var(--ink);
+}
+.pl-table.recon tr.tot td { font-weight: 700; color: var(--ink); }
+.pl-table.recon tr.diff td {
+  border-top: 1px dashed var(--line); color: var(--muted); font-size: 11px;
+}
+.pl-table.recon tr.diff.bad td { color: var(--bad); font-weight: 650; }
+.pl-table.recon i { font-style: normal; font-size: 10px; color: var(--ink-3); }
+
+.pl-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+  margin-right: 6px; vertical-align: 1px;
+}
+
+.pl-tag {
+  display: inline-block; padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: 9.5px; font-weight: 650; white-space: nowrap;
+  background: var(--surface-soft); color: var(--ink-2); border: 1px solid var(--line);
+}
+.pl-tag.cost { background: rgba(180, 35, 24, .08); color: #8F1D13; border-color: transparent; }
+.pl-tag.none { background: var(--surface-soft); color: var(--ink-3); }
+.pl-tag.in { background: rgba(31, 122, 69, .1); color: var(--good); border-color: transparent; }
+.pl-tag.wash { background: rgba(217, 119, 6, .1); color: #9A5B06; border-color: transparent; }
+
+/* ---- khối hàng tặng kèm ---- */
+.pl-gift {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;
+}
+@media (max-width: 640px) { .pl-gift { grid-template-columns: repeat(2, 1fr); } }
+.pl-gift > div {
+  border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); padding: 8px 10px;
+}
+.pl-gift span {
+  display: block; font-size: 9.5px; color: var(--muted); margin-bottom: 2px;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.pl-gift b { font-size: 13px; font-weight: 700; color: var(--ink); }
+
+/* ---- danh sách cách tính ---- */
+.pl-ol, .pl-ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 9px; }
+.pl-ol li, .pl-ul li { font-size: 11.5px; line-height: 1.6; color: var(--ink-2); }
+.pl-ol li b, .pl-ul li b { color: var(--ink); }
+.pl-ol code, .pl-ul code, .pl-page .m2-head code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px; background: var(--surface-soft); border: 1px solid var(--line);
+  border-radius: 4px; padding: 0 4px;
+}
+
+.pl-acts button.primary {
+  background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 650;
+}
+.pl-acts button.primary:hover { background: var(--blue); color: #fff; }
+.pl-acts { flex-wrap: wrap; }
+
+/* In / PDF: bỏ thanh tab (in ra chỉ là nút vô nghĩa), cho bảng rộng xuống dòng
+   thay vì cắt ngang, và không để panel bị chẻ giữa trang. */
+@media print {
+  .pl-page .mk-tabbar, .pl-page .group-ctrl, .pl-page .pl-acts { display: none !important; }
+  .pl-page .m2-tablewrap { overflow: visible !important; border: 0 !important; }
+  .pl-page .pl-table.wide { min-width: 0 !important; font-size: 9px; }
+  .pl-page .m2-panel { break-inside: avoid-page; }
+  .pl-row2 { grid-template-columns: 1fr !important; }
+  .pl-wf svg { min-width: 0 !important; }
+}

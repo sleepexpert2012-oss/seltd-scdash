@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import infra from '../data/infra.json'
 import sales from '../data/sales.json'
+import daily from '../data/sales_daily.json'
+import platform from '../data/platform.json'
 import stock from '../data/stock.json'
 import mkt from '../data/marketing.json'
 import phantom from '../data/phantom.json'
@@ -12,7 +14,170 @@ import {
   parseMasterFile, diffMaster, exportJson, exportMasterXlsx, exportRowsXlsx,
 } from '../lib/masterFile'
 import { num } from '../lib/format'
+import { PHANTOM, STOCK_RAW_BY_SKU } from '../lib/metrics'
 import './infra.css'
+
+/* ============================================================
+   TỰ SOÁT CHẤT LƯỢNG DỮ LIỆU
+   Sinh ra từ đợt audit 08/09/2026. Mỗi dòng là một phép kiểm đã từng phát hiện
+   lỗi thật, để lần sau lỗi quay lại thì thấy ngay chứ không phải audit lại tay.
+   ============================================================ */
+function runChecks() {
+  const sk = Object.fromEntries(master.skus.map(x => [x.sku, x]))
+  const sumBy = (rows, key, val) => {
+    const m = {}
+    for (const r of rows) m[key(r)] = (m[key(r)] || 0) + (val(r) || 0)
+    return m
+  }
+  const out = []
+  const add = (id, label, state, detail, why) => out.push({ id, label, state, detail, why })
+
+  /* 1. Doanh thu theo tháng phải khớp doanh thu dựng từ dữ liệu ngày.
+        Lỗi thật 08/09/2026: view ngày không trừ voucher shop -> màn Lịch bán
+        hàng cao hơn mọi màn khác 105,6tr (+5,6%), riêng 2025-03 lệch +34%. */
+  const mRev = sumBy(sales.rows, r => sales.months[r.m], r => r.rev)
+  const dRev = sumBy(daily.rows, r => r.d.slice(0, 7).replace('-', '.'), r => r.rev)
+  const keys = [...new Set([...Object.keys(mRev), ...Object.keys(dRev)])]
+  const off = keys.filter(k => Math.abs((mRev[k] || 0) - (dRev[k] || 0)) > 1000)
+  const offSum = keys.reduce((a, k) => a + ((dRev[k] || 0) - (mRev[k] || 0)), 0)
+  add('rev-day', 'Doanh thu tháng khớp doanh thu ngày',
+    off.length ? 'bad' : 'ok',
+    off.length ? `${off.length}/${keys.length} tháng lệch, tổng ${Math.round(offSum / 1e6)} tr` : 'khớp toàn bộ',
+    'Màn Lịch bán hàng dựng từ dữ liệu ngày, các màn khác từ dữ liệu tháng. Lệch là hai màn báo hai con số.')
+
+  /* 2. Chi phí quảng cáo: tổng shop vs phần gán được chiến dịch */
+  const adsShop = platform.ads.reduce((a, r) => a + (r.chi_phi_ads || 0), 0)
+  const adsCamp = (mkt.campaigns || []).reduce((a, r) => a + (r.expense || 0), 0)
+  const gapRate = adsShop > 0 ? (adsShop - adsCamp) / adsShop : 0
+  add('ads-gap', 'Chi phí ads gán được vào chiến dịch',
+    gapRate > 0.25 ? 'bad' : gapRate > 0.05 ? 'warn' : 'ok',
+    `${Math.round(adsCamp / 1e6)}/${Math.round(adsShop / 1e6)} tr gán được · ${Math.round(gapRate * 100)}% chưa gán`,
+    'Phần chưa gán là chiến dịch đã xoá hoặc loại quảng cáo API không trả chi tiết. ROAS/CPC chỉ tính được trên phần gán được.')
+
+  /* 3. Giá vốn thiếu — nếu SKU thiếu giá vốn mà đã bán thì GM% bị thổi lên 100% */
+  const noCost = master.skus.filter(x => !(x.unitCost || 0)).map(x => x.sku)
+  const soldSet = new Set(sales.rows.filter(r => (r.un || 0) > 0).map(r => r.sku))
+  const stockSet = new Set(stock.rows.filter(r => r.qty > 0).map(r => r.sku))
+  const badCost = noCost.filter(x => soldSet.has(x) || stockSet.has(x))
+  add('cost', 'Giá vốn đã khai đủ cho SKU đang dùng',
+    badCost.length ? 'bad' : noCost.length ? 'warn' : 'ok',
+    badCost.length
+      ? `${badCost.length} SKU đã bán/đang có tồn mà chưa có giá vốn: ${badCost.slice(0, 5).join(', ')}`
+      : `${noCost.length}/${master.skus.length} SKU chưa khai, nhưng chưa bán và chưa có tồn`,
+    'SKU thiếu giá vốn mà đã bán sẽ cho GM% = 100% một cách âm thầm, và làm nhẹ vốn tồn kho.')
+
+  /* 4. SKU lạ — bán hoặc tồn mà không có trong Master Data thì mọi tra cứu vỡ */
+  const known = new Set(master.skus.map(x => x.sku))
+  const orphan = [...new Set([...sales.rows.map(r => r.sku), ...stock.rows.map(r => r.sku)])]
+    .filter(x => !known.has(x))
+  add('orphan', 'Mọi SKU bán/tồn đều có trong Master Data',
+    orphan.length ? 'bad' : 'ok',
+    orphan.length ? `${orphan.length} SKU lạ: ${orphan.slice(0, 6).join(', ')}` : 'không có SKU lạ',
+    'SKU không có trong Master Data thì mất ngành hàng, giá vốn và nhà cung cấp — doanh thu của nó rơi ra ngoài mọi bảng.')
+
+  /* 5. Doanh thu âm — hàng tặng kèm bị phân bổ voucher */
+  const neg = sales.rows.filter(r => (r.rev || 0) < 0)
+  const negSum = neg.reduce((a, r) => a + r.rev, 0)
+  add('neg-rev', 'Không có dòng bán doanh thu âm',
+    neg.length ? 'warn' : 'ok',
+    neg.length ? `${neg.length} dòng, tổng ${Math.round(negSum / 1000)} nghìn` : 'không có',
+    'Hàng tặng kèm (giá bán 0) bị phân bổ voucher shop nên ra doanh thu âm, làm GM% của SKU đó âm vô lý trong bảng.')
+
+  /* 6. Hàng tặng kèm — chi phí không có doanh thu, lẫn trong giá vốn */
+  const gift = sales.rows.filter(r => (r.rev || 0) <= 0 && (r.cogs || 0) > 0)
+  const giftCogs = gift.reduce((a, r) => a + r.cogs, 0)
+  add('gift', 'Hàng tặng kèm đã bóc riêng',
+    giftCogs > 0 ? 'warn' : 'ok',
+    giftCogs > 0 ? `${Math.round(giftCogs / 1e6)} tr giá vốn không sinh doanh thu` : 'không có',
+    'Đây là chi phí thật nhưng nằm lẫn trong giá vốn. Xem khối riêng ở màn Lãi lỗ > Tiền rơi ở đâu.')
+
+  /* 7. Tháng có bán mà không có dữ liệu phí sàn */
+  const feeYm = new Set(platform.fees.map(r => r.ym))
+  const missFee = sales.months.filter(m => !feeYm.has(m.replace('.', '-')))
+  add('fee-cover', 'Mọi tháng có bán đều có dữ liệu phí sàn',
+    missFee.length ? 'bad' : 'ok',
+    missFee.length ? `thiếu: ${missFee.join(', ')}` : `đủ ${feeYm.size} tháng`,
+    'Thiếu phí sàn của một tháng thì lãi tháng đó bị nhìn cao hơn thực tế.')
+
+  /* 8. Quảng cáo chỉ có ~5 tháng lịch sử */
+  const adsYm = platform.ads.map(r => r.ym)
+  const noAds = sales.months.length - adsYm.length
+  add('ads-cover', 'Phạm vi dữ liệu quảng cáo',
+    noAds > 0 ? 'warn' : 'ok',
+    `có ${adsYm.length}/${sales.months.length} tháng (từ ${adsYm[0] || '—'})`,
+    'API Shopee chỉ lưu khoảng 5 tháng. Các tháng trước là KHÔNG CÓ DỮ LIỆU, không phải bằng 0 — lãi những tháng đó chưa trừ ads.')
+
+  /* 9. Tồn ảo khai nhiều hơn tồn thực có.
+        PHẢI đọc PHANTOM (số đang áp dụng thật, ưu tiên bản đám mây) chứ không
+        đọc phantom.json trong repo — file đó chỉ là bản dự phòng khi mất mạng. */
+  const ph = PHANTOM || {}
+  const stkBySku = Object.fromEntries(
+    Object.entries(STOCK_RAW_BY_SKU).map(([k, v]) => [k, v.total + v.store])
+  )
+  const over = Object.entries(ph).filter(([k, v]) => (v || 0) > (stkBySku[k] || 0))
+  add('phantom', 'Tồn ảo khai không vượt tồn Shopee',
+    over.length ? 'bad' : 'ok',
+    Object.keys(ph).length
+      ? (over.length ? `${over.length} SKU khai vượt: ${over.map(([k]) => k).join(', ')}`
+        : `${Object.keys(ph).length} SKU đang khai, đều nhỏ hơn tồn`)
+      : 'chưa khai SKU nào',
+    'Khai nhiều hơn tồn Shopee nghĩa là số khai sai, hoặc tồn đã bán hết — trừ ra sẽ về 0 và mất dấu.')
+
+  return out
+}
+
+const CHK = {
+  ok: { label: 'Đạt', tone: 'good' },
+  warn: { label: 'Cần biết', tone: 'warn' },
+  bad: { label: 'Có vấn đề', tone: 'bad' },
+}
+
+function CheckTab({ checks }) {
+  const nBad = checks.filter(c => c.state === 'bad').length
+  const nWarn = checks.filter(c => c.state === 'warn').length
+  return (
+    <div className="inf-body">
+      <div className={`inf-stale t-${nBad ? 'bad' : nWarn ? 'warn' : 'good'}`}>
+        <b>
+          {nBad ? `${nBad} phép kiểm đang có vấn đề` : nWarn
+            ? `Không có lỗi · ${nWarn} điểm cần biết` : 'Toàn bộ phép kiểm đều đạt'}
+        </b>
+        <p>
+          Mỗi dòng dưới đây là một phép kiểm <b>đã từng phát hiện lỗi thật</b> trong đợt
+          soát ngày 08/09/2026. Chúng tính lại mỗi lần mở trang, nên nếu lỗi quay lại
+          thì thấy ngay ở đây chứ không phải soát tay lần nữa.
+        </p>
+      </div>
+      <section className="m2-panel">
+        <div className="m2-head">
+          <h3>Chín phép kiểm dữ liệu</h3>
+          <span>“Cần biết” là giới hạn của nguồn dữ liệu, không phải lỗi app —
+            nhưng phải biết để đọc số cho đúng</span>
+        </div>
+        <div className="m2-tablewrap">
+          <table className="inf-table">
+            <thead>
+              <tr><th>Phép kiểm</th><th>Kết quả</th><th className="num">Trạng thái</th>
+                <th>Vì sao quan trọng</th></tr>
+            </thead>
+            <tbody>
+              {checks.map(c => (
+                <tr key={c.id}>
+                  <td><b>{c.label}</b></td>
+                  <td className="sm mono">{c.detail}</td>
+                  <td className="num">
+                    <span className={`pill t-${CHK[c.state].tone}`}>{CHK[c.state].label}</span>
+                  </td>
+                  <td className="sm">{c.why}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  )
+}
 
 /* ---------- thời gian ---------- */
 const VN = 'Asia/Ho_Chi_Minh'
@@ -112,7 +277,7 @@ export default function Infra() {
     const worst = cards.reduce((a, c) =>
       ({ ok: 0, late: 1, down: 2, unknown: 1 }[c.st] > { ok: 0, late: 1, down: 2, unknown: 1 }[a] ? c.st : a), 'ok')
     const fails = (infra.runs || []).filter(r => r.ok === false)
-    return { cards, worst, fails, byT, byJob }
+    return { cards, worst, fails, byT, byJob, checks: runChecks() }
   }, [])
 
   async function onPick(e) {
@@ -166,6 +331,7 @@ export default function Infra() {
         <div className="mk-tabs">
           {[['flow', '⛭', 'App hoạt động thế nào', null],
             ['sources', '⛁', 'Nguồn dữ liệu', d.cards.length + 1],
+            ['check', '✓', 'Tự soát dữ liệu', d.checks.filter(c => c.state !== 'ok').length || null],
             ['log', '☰', 'Nhật ký', (infra.runs || []).length],
             ['stack', '⚙', 'Hạ tầng & lịch chạy', null]].map(([id, ic, lb, n]) => (
               <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
@@ -181,6 +347,7 @@ export default function Infra() {
         <SourcesTab d={d} imp={imp} setImp={setImp} busy={busy}
           fileRef={fileRef} onPick={onPick} />
       )}
+      {tab === 'check' && <CheckTab checks={d.checks} />}
       {tab === 'log' && <LogTab d={d} />}
       {tab === 'stack' && <StackTab d={d} />}
     </div>

@@ -247,3 +247,15 @@ button.lnk {
 .inf-stale.t-bad { border-left-color: var(--bad); }
 .inf-card dd em.sub { display: block; margin-top: 1px; font-size: 10.5px;
   color: var(--ink-3); font-style: normal; font-weight: 400; }
+
+/* tab Tự soát dữ liệu */
+.inf-body { display: flex; flex-direction: column; gap: 14px; }
+.inf-stale.t-good { border-left-color: var(--good); }
+
+/* In / PDF */
+@media print {
+  .inf-page .mk-tabbar, .inf-page .group-ctrl, .inf-page .inf-acts { display: none !important; }
+  .inf-page .m2-tablewrap { overflow: visible !important; border: 0 !important; max-height: none !important; }
+  .inf-page .m2-panel { break-inside: avoid-page; }
+  .inf-row2 { grid-template-columns: 1fr !important; }
+}

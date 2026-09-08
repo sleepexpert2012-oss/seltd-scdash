@@ -6,6 +6,7 @@ const P = {
   box: <><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" /><path d="m4 7 8 4 8-4" /><path d="M12 11v10" /></>,
   trend: <><path d="M4 16l5-5 3 3 7-7" /><path d="M15 7h4v4" /></>,
   calendar: <><rect x="4" y="5" width="16" height="16" rx="2" /><path d="M4 10h16" /><path d="M9 3v4" /><path d="M15 3v4" /><path d="M8 14h2.5" /><path d="M14 14h2" /><path d="M8 17.5h2.5" /></>,
+  scale: <><path d="M12 4v16" /><path d="M6 8h12" /><path d="m6 8-3 6h6Z" /><path d="m18 8-3 6h6Z" /><path d="M8 20h8" /></>,
   book: <><path d="M5 5a2 2 0 0 1 2-2h12v18H7a2 2 0 0 1-2-2Z" /><path d="M9 3v18" /></>,
   filter: <><path d="M4 5h16l-6.5 7.5V19l-3-2v-4.5Z" /></>,
   reset: <><path d="M4 12a8 8 0 1 1 2.6 5.9" /><path d="M4 19v-5h5" /></>,

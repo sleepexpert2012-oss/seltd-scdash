@@ -16,6 +16,7 @@ import Supplier from '../screens/Supplier'
 import Stock from '../screens/Stock'
 import Forecast from '../screens/Forecast'
 import Marketing from '../screens/Marketing'
+import Pnl from '../screens/Pnl'
 import Infra from '../screens/Infra'
 import CalendarScreen from '../screens/Calendar'
 import './shell.css'
@@ -123,6 +124,7 @@ export default function AppShell({ onLogout }) {
               : page === 'range' ? <Range filters={filters} setFilters={setFilters} />
               : page === 'matrix' ? <Matrix filters={filters} setFilters={setFilters} />
               : page === 'marketing' ? <Marketing filters={filters} setFilters={setFilters} />
+              : page === 'pnl' ? <Pnl filters={filters} setFilters={setFilters} />
               : page === 'supplier' ? <Supplier filters={filters} setFilters={setFilters} />
               : page === 'stock' ? <Stock filters={filters} setFilters={setFilters} />
               : page === 'forecast' ? <Forecast filters={filters} />

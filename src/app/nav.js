@@ -10,17 +10,15 @@ export const NAV = [
       { id: 'range', label: 'Range Review', icon: 'grid', screen: 3 },
       { id: 'matrix', label: 'Ma trận sản phẩm', icon: 'layers', screen: 4 },
       { id: 'marketing', label: 'Marketing Analysis', icon: 'trend', screen: 9 },
+      { id: 'pnl', label: 'Lãi lỗ', icon: 'scale', screen: 11 },
     ],
   },
   {
-    label: 'Mua hàng & Nhà cung cấp',
+    /* Gộp "Mua hàng & Nhà cung cấp" + "Tồn kho & Kế hoạch" thành một nhóm:
+       ba màn này đi liền một mạch nghiệp vụ — mua về, giữ tồn, lên kế hoạch. */
+    label: 'Cung ứng & Kế hoạch',
     items: [
       { id: 'supplier', label: 'Nhà cung cấp & Mua hàng', icon: 'factory', screen: 5 },
-    ],
-  },
-  {
-    label: 'Tồn kho & Kế hoạch',
-    items: [
       { id: 'stock', label: 'Tồn kho & Đặt hàng', icon: 'box', screen: 6 },
       { id: 'forecast', label: 'Forecast & Kế hoạch', icon: 'trend', screen: 7 },
     ],

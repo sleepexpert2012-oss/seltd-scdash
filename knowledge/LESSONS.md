@@ -48,3 +48,39 @@
   lệch 7 tiếng — đủ để bộ báo động vừa sửa lại báo oan.
 - **Rule rút ra**: mọi mốc thời gian ghi ra file cho app đọc **phải có offset**.
   Kiểm bằng cách chạy lại với `TZ=UTC`.
+
+## 08/09/2026 — Hai view cho cùng một chỉ số là hai con số
+- **Việc**: audit toàn app.
+- **Sai gì**: `mart_sales_sku_day.rev` không trừ voucher shop còn
+  `mart_sales_sku_month.rev` thì trừ. Màn Lịch bán hàng báo doanh thu cao hơn mọi
+  màn khác **cả 21/21 tháng**, tổng +105,6tr, tháng nặng nhất +34%. Tồn tại âm
+  thầm nhiều ngày vì không ai so hai màn với nhau.
+- **Rule rút ra**:
+  1. Chỉ số nào có **hai đường tính** thì phải có một phép kiểm cộng hai đường lại
+     và so — không dựa vào việc đọc code thấy giống nhau.
+  2. Khi lệch, so **từng thành phần** (GMV, số lượng, giá vốn, doanh thu) để khoanh
+     vùng: ở đây GMV/SL/giá vốn khớp, chỉ doanh thu lệch → ra ngay khoản voucher.
+  3. `create or replace view` của Postgres không cho đổi tên cột đã có — cột mới
+     phải thêm vào **cuối** danh sách select.
+
+## 08/09/2026 — Cùng một tên chỉ số, hai mẫu số khác nhau
+- **Sai gì**: "chi phí quảng cáo" ở màn Marketing là phần gán được chiến dịch
+  (48,6tr), ở màn Lãi lỗ là tổng toàn shop (57,3tr). Lệch 15%, riêng 06/2026 mất
+  60%. Mọi chỉ số dẫn xuất (ROAS, CPC, TACOS) tính trên mẫu số nhỏ nên ROAS bị
+  nhìn cao hơn thật ~18%.
+- **Rule rút ra**: khi nguồn cho **hai mức tổng hợp** của cùng một khoản (cấp shop
+  và cấp chiến dịch), đừng chọn một cái rồi im lặng. Hiện tổng lớn ở KPI, ghi rõ
+  phần không phân bổ được, và nói rõ chỉ số nào tính trên mẫu số nào.
+
+## 08/09/2026 — Kho không bán hàng vẫn bị tính là hàng bán được
+- **Sai gì**: tồn của "Kho hàng lỗi" cộng vào tồn khả dụng nên chạy vào điểm đặt
+  hàng, tồn chết và vốn đọng. Chỉ 2 unit nên không ai thấy.
+- **Rule rút ra**: dữ liệu kho luôn có cột **loại kho** — phải lọc theo nó ngay tại
+  nguồn, đừng cộng tất cả rồi mới trừ ở tầng hiển thị. Sai số nhỏ hôm nay là sai
+  nguyên tắc, và nó lớn dần.
+
+## 08/09/2026 — Audit phải để lại thứ chạy lại được
+- **Việc**: sau khi soát tay ra 3 lỗi thật, tôi dựng tab *Tự soát dữ liệu* với 9
+  phép kiểm tính lại mỗi lần mở trang.
+- **Rule rút ra**: mỗi lỗi tìm được bằng tay nên biến thành **một phép kiểm sống**
+  trong app. Audit một lần chỉ sạch một lần; phép kiểm thì bắt được lần sau.

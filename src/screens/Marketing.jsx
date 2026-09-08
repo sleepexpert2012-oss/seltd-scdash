@@ -215,6 +215,17 @@ export default function Marketing({ filters, setFilters }) {
     const sum = (rows, k) => rows.reduce((s, r) => s + (r[k] || 0), 0)
 
     const exp = sum(items, 'expense')
+    /* Chi phí ads có HAI mẫu số khác nhau, trước đây màn này chỉ dùng cái nhỏ:
+         exp      = phần gán được vào chiến dịch/sản phẩm (dùng cho ROAS, CPC, CR)
+         expShop  = tổng chi phí toàn shop Shopee báo (dùng cho TACOS, LN, và KPI)
+       Toàn kỳ expShop = 57,3tr còn exp = 48,6tr — lệch 8,7tr (15%), riêng
+       06/2026 thiếu 60%. Lấy exp làm mẫu số thì ROAS bị nhìn cao hơn thật và
+       màn này lệch với màn Lãi lỗ. Khi có bộ lọc ngành/SKU thì không thể chia
+       phần chưa gán cho ngành nào, nên lúc đó chỉ dùng exp. */
+    const expShop = hasSkuFilter ? exp
+      : mkt.months.filter(m => MW.includes(m.ym))
+        .reduce((t, m) => t + (m.ads_shop || 0), 0)
+    const expKhac = Math.max(0, expShop - exp)
     const imp = sum(items, 'impression')
     const clk = sum(items, 'clicks')
     const adsOrd = sum(items, 'ads_order')
@@ -232,7 +243,8 @@ export default function Marketing({ filters, setFilters }) {
     const gm = rev > 0 ? (rev - cogs) / rev : 0
     const beRoas = beOf(gm, feeRate)
     const kpi = {
-      exp, imp, clk, adsOrd, adsGmv, gmv, rev, cogs, netRate, feeRate, gm, beRoas,
+      exp, expShop, expKhac, expKhacRate: expShop > 0 ? expKhac / expShop : 0,
+      imp, clk, adsOrd, adsGmv, gmv, rev, cogs, netRate, feeRate, gm, beRoas,
       ctr: imp > 0 ? clk / imp : 0,
       cr: clk > 0 ? adsOrd / clk : 0,
       cpc: clk > 0 ? exp / clk : 0,
@@ -240,9 +252,11 @@ export default function Marketing({ filters, setFilters }) {
       roasS: exp > 0 ? adsGmv / exp : 0,
       roasR: exp > 0 ? (adsGmv * netRate) / exp : 0,
       acos: adsGmv > 0 ? exp / adsGmv : 0,
-      tacos: rev > 0 ? exp / rev : 0,
+      /* TACOS và LN là chỉ số lãi lỗ -> phải dùng TOÀN BỘ chi phí ads,
+         không chỉ phần gán được chiến dịch, để khớp với màn Lãi lỗ. */
+      tacos: rev > 0 ? expShop / rev : 0,
       adsShare: gmv > 0 ? adsGmv / gmv : 0,
-      ln: rev - cogs - rev * feeRate - exp,
+      ln: rev - cogs - rev * feeRate - expShop,
       ordNet: adsOrd * netRate,
     }
 
@@ -401,12 +415,18 @@ export default function Marketing({ filters, setFilters }) {
   const { kpi, series, byNganh, byItem, camps, diagGroups } = d
 
   const KPI = [
-    { k: 'Chi phí quảng cáo', v: trieu(kpi.exp), u: 'triệu', sub: `${num(kpi.imp)} hiển thị · ${num(kpi.clk)} click`, tone: 'blue' },
+    { k: 'Chi phí quảng cáo', v: trieu(kpi.expShop), u: 'triệu',
+      sub: kpi.expKhac > 0
+        ? `${trieu(kpi.exp)} tr gán được chiến dịch · ${trieu(kpi.expKhac)} tr chưa gán (${pct(kpi.expKhacRate, 0)})`
+        : `${num(kpi.imp)} hiển thị · ${num(kpi.clk)} click`,
+      tone: kpi.expKhacRate > 0.1 ? 'amber' : 'blue' },
     { k: 'ROAS Shopee', v: fmtRoas(kpi.roasS), u: 'trên GMV', sub: 'số Shopee báo — tính cả đơn bị huỷ', tone: 'grey' },
     { k: 'ROAS thật', v: fmtRoas(kpi.roasR), u: 'trên doanh thu', sub: `sau khi trừ huỷ/hoàn/giảm giá (${pct(kpi.netRate)})`, tone: kpi.beRoas && kpi.roasR >= kpi.beRoas ? 'good' : 'bad' },
     { k: 'ROAS hoà vốn', v: fmtBe(kpi.beRoas), u: 'ngưỡng phải vượt', sub: `GM ${pct(kpi.gm)} − phí sàn ${pct(kpi.feeRate)}`, tone: 'amber' },
-    { k: 'Chi phí / đơn', v: trieu(kpi.cpo, 2), u: 'triệu/đơn ads', sub: `CPC ${num(kpi.cpc)} đ · CTR ${pct(kpi.ctr, 2)}`, tone: 'grey' },
-    { k: 'TACOS', v: pct(kpi.tacos, 1), u: 'ads ÷ doanh thu', sub: `ads đóng ${pct(kpi.adsShare)} GMV sản phẩm được QC`, tone: 'grey' },
+    { k: 'Chi phí / đơn', v: trieu(kpi.cpo, 2), u: 'triệu/đơn ads',
+      sub: `CPC ${num(kpi.cpc)} đ · CTR ${pct(kpi.ctr, 2)} — tính trên phần gán được chiến dịch`, tone: 'grey' },
+    { k: 'TACOS', v: pct(kpi.tacos, 1), u: 'toàn bộ ads ÷ doanh thu',
+      sub: `ads đóng ${pct(kpi.adsShare)} GMV sản phẩm được QC`, tone: 'grey' },
   ]
 
   /* Phễu: Lượt xem → Lượt click → Lượt mua → Đơn thành công,
@@ -429,7 +449,7 @@ export default function Marketing({ filters, setFilters }) {
   ]
 
   const verdict = (() => {
-    if (!kpi.exp) return { tone: 'grey', t: 'Không có chi phí quảng cáo trong kỳ.' }
+    if (!kpi.expShop) return { tone: 'grey', t: 'Không có chi phí quảng cáo trong kỳ.' }
     const worst = diagGroups.filter(g => ['cancel', 'margin', 'cr', 'ctr', 'reach'].includes(g.id))
       .sort((a, b) => b.expense - a.expense)[0]
     const ok = kpi.beRoas && kpi.roasR >= kpi.beRoas

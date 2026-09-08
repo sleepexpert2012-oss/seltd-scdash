@@ -124,10 +124,18 @@ select
   sum(s.qty)                                     as u,
   sum(s.qty_net)                                 as un,
   sum(s.price_paid * s.qty)                      as gmv,
-  sum(s.price_paid * s.qty_net)                  as rev,
-  sum(coalesce(d.unit_cost,0) * s.qty_net)       as cogs
+  /* PHẢI trừ voucher shop đúng như mart_sales_sku_month, nếu không màn Lịch
+     bán hàng báo doanh thu cao hơn các màn khác. Lỗi này đã có thật: lệch
+     +105,6tr toàn kỳ (+5,6%), riêng 2025-03 lệch +34%. */
+  sum(s.price_paid * s.qty_net)
+    - sum(coalesce(e.dc_shop,0) * case when s.qty > 0 then s.qty_net::numeric / s.qty else 0 end) as rev,
+  sum(coalesce(d.unit_cost,0) * s.qty_net)       as cogs,
+  /* thêm cột mới phải để CUỐI: create or replace view không cho đổi tên cột đã có */
+  sum(coalesce(e.dc_shop,0) * case when s.qty > 0 then s.qty_net::numeric / s.qty else 0 end) as dc
 from shopee.stg_order_item s
 left join shopee.dim_sku d on d.sku = s.sku
+left join shopee.stg_escrow_item e
+       on e.order_sn = s.order_sn and e.line_item_id = s.line_item_id
 where s.sku is not null
 group by 1,2;
 

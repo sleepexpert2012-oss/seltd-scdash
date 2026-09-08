@@ -23,6 +23,8 @@ Mã nguồn app báo cáo Supply Chain (chạy local). Đặt ngoài OneDrive v�
 | `src/app/shell.css` (khối `m2-*`) | Bố cục dùng chung theo mẫu 2: tiêu đề trang, tabs có icon, dải KPI liền khối, panel tiêu đề uppercase, bảng header navy |
 | `src/screens/Calendar.jsx` + `calendar.css` | **Màn hình 8 — Lịch bán hàng**: heatmap ngày trong tháng · nhịp theo thứ · top ngày · SKU bán trong ngày |
 | `src/data/sales_daily_mock.json` · `scripts/gen_mock_daily.py` | **DỮ LIỆU NGÀY GIẢ** — phân bổ từ sales_mock, tổng tháng giữ nguyên |
+| `src/screens/Infra.jsx` tab *Tự soát dữ liệu* | 9 phép kiểm chất lượng dữ liệu, tính lại mỗi lần mở trang — sinh ra từ đợt audit 08/09/2026 |
+| `src/screens/Pnl.jsx` + `pnl.css` | **Màn hình 11 — Lãi lỗ**: thác nước GMV→lãi lỗ (SVG tự vẽ) · 6 tab: tiền rơi ở đâu · theo tháng · phí sàn · vì sao lãi đổi · ngành & SKU · cách tính |
 | `src/screens/ClassModal.jsx` + `classModal.css` | **Màn phụ — Class Dashboard**: drill-down 4 phần, mở từ mọi màn |
 | `src/app/drill.jsx` | Context mở/đóng màn phụ |
 | `src/app/ErrorBoundary.jsx` | Chặn lỗi một màn làm trắng cả app |
@@ -103,6 +105,46 @@ Phễu và biểu đồ chi phí/ROAS **chỉ xuất hiện ở tab Tổng quan*
 chỉ có biểu đồ của đúng cấp đó (phân tán bong bóng · thanh ngang ghép đôi ·
 cột phân kỳ · treemap · thanh 100% phân bổ).
 
+### Menu (2026-09-08)
+Ba nhóm: **Phân tích kinh doanh** (Tổng quan · Lịch bán hàng · Ngành hàng · Range Review ·
+Ma trận sản phẩm · Marketing Analysis · Lãi lỗ) · **Cung ứng & Kế hoạch** (Nhà cung cấp &
+Mua hàng · Tồn kho & Đặt hàng · Forecast & Kế hoạch) · **Tài liệu & Hệ thống**
+(Cơ sở hạ tầng · Giới thiệu & Định nghĩa).
+
+Gộp "Mua hàng & Nhà cung cấp" + "Tồn kho & Kế hoạch" thành *Cung ứng & Kế hoạch* theo yêu cầu
+anh Louis — ba màn đó đi liền một mạch nghiệp vụ.
+
+### Màn hình 11 — Lãi lỗ (2026-09-08)
+`src/screens/Pnl.jsx` + `pnl.css`, nav nhóm *Phân tích kinh doanh*, ngay sau Marketing Analysis.
+Nguồn: `src/data/sales.json` (GMV/huỷ/hoàn/giảm giá/doanh thu/giá vốn theo SKU-tháng)
++ `src/data/platform.json` khối `fees` (escrow từng đơn) và `ads`.
+
+**Định nghĩa chốt** — phí sàn = đúng 6 khoản `tong_phi_san`
+(hoa hồng + dịch vụ + giao dịch + AMS + campaign + hỗ trợ kỹ thuật).
+KHÔNG gộp voucher shop vào phí sàn: nó đã bị trừ ở bước Giảm giá khi tính doanh thu,
+gộp lại là tính hai lần. Voucher Shopee tài trợ không phải chi phí của shop.
+`seller_transaction_fee` = `credit_card_transaction_fee` ở 100% đơn — chỉ tính một lần.
+
+**Đối chiếu dòng tiền** (dò trên từng đơn, khớp 99,6% ở 1.521 đơn):
+`escrow_amount = order_selling_price − phí sàn − voucher_from_seller`.
+Phần lệch 0,43% là điều chỉnh lẻ của Shopee, hiện trên màn thành dòng "Chênh lệch";
+vượt 2% thì đổi màu đỏ vì nghĩa là escrow có khoản mới chưa vào công thức.
+
+**Phân rã vì sao lãi đổi**: `LN% = GM% − phí sàn% − ads%` nên ba nguyên nhân cộng lại
+đúng bằng mức thay đổi LN%, không có phần "còn lại". Tính theo ĐIỂM % trên doanh thu
+vì so tiền tuyệt đối giữa hai kỳ khác quy mô thì vô nghĩa.
+
+**Ở cấp ngành/SKU phí là số PHÂN BỔ** theo tỷ trọng doanh thu — Shopee không trả phí
+ở cấp SKU. Doanh thu / giá vốn / LN gộp vẫn là số thật. Màn tự hiện dải cảnh báo khi
+bộ lọc chiều đang bật.
+
+**Hàng tặng kèm**: dòng bán có giá vốn mà giá bán 0 — bóc riêng thành khối, vì nó nằm
+lẫn trong giá vốn nên trước đây không ai thấy (toàn kỳ 25,9tr, riêng 2026 là 10,0tr).
+
+Giới hạn đã ghi rõ trên tab *Cách tính*: chưa có ads trước 2026-04 (API chỉ lưu ~5 tháng)
+nên lãi các tháng cũ là chưa trừ ads; chưa có chi phí vận hành nên đây là lãi **đóng góp**,
+chưa phải lãi ròng.
+
 Quy ước nhãn biểu đồ toàn app: biểu đồ từ 2 chỉ số trở lên phải có legend;
 biểu đồ 2 trục ghi rõ `(trái)`/`(phải)` và đơn vị trong nhãn.
 Chỉ số tự tính (Shopee KHÔNG có): **Chất lượng đơn · ROAS thật · ROAS hoà vốn · TACOS · LN sau ads**.
@@ -160,4 +202,5 @@ KHÔNG chạm được schema `shopee`. Muốn chặn hẳn thì cần Supabase 
 | File | Nội dung |
 |---|---|
 | `knowledge/2026-09-08_dong-bo-dut-ma-app-bao-binh-thuong.md` | Chẩn đoán 4 lỗi làm đồng bộ đứng mà app vẫn báo "Bình thường"; chuyển ETL sang GitHub Actions; token Shopee vào bảng `shopee.oauth_token` |
+| `knowledge/2026-09-08_audit-toan-bo-app.md` | **Audit toàn app**: 3 lỗi thật đã sửa (doanh thu ngày thiếu voucher · chi phí ads hai mẫu số · kho hàng lỗi tính là hàng bán được), 4 điểm cần biết, bẫy khi audit |
 | `knowledge/LESSONS.md` | Bài học dồn theo ngày — mỗi entry: việc · sai gì · sửa gì · rule rút ra |
