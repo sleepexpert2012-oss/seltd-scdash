@@ -5,15 +5,83 @@ HOST = 'https://partner.shopeemobile.com'
 BASE = os.path.join(os.path.dirname(__file__), '..', '..', 'secrets')
 CRED = os.path.join(BASE, 'shopee.json')
 
-def load():
+def _static():
+    """partner_id / partner_key / shop_id: biến môi trường trước, file sau.
+
+    Trên GitHub Actions không có file secrets/ nên lấy từ secret của repo.
+    """
+    e = os.environ
+    if e.get('SHOPEE_PARTNER_ID') and e.get('SHOPEE_PARTNER_KEY') and e.get('SHOPEE_SHOP_ID'):
+        return {'partner_id': int(e['SHOPEE_PARTNER_ID']),
+                'partner_key': e['SHOPEE_PARTNER_KEY'],
+                'shop_id': int(e['SHOPEE_SHOP_ID']),
+                'region': e.get('SHOPEE_REGION', 'VN')}
     with open(CRED) as f:
         return json.load(f)
 
+TOKF = ('access_token', 'refresh_token', 'token_at', 'expire_in')
+_C = None          # cache trong tiến trình: call() gọi load() mỗi request
+
+def _db_get(shop_id):
+    import db
+    with db.connect() as c, c.cursor() as cur:
+        cur.execute('select access_token, refresh_token, token_at, expire_in '
+                    'from shopee.oauth_token where shop_id = %s', (shop_id,))
+        r = cur.fetchone()
+    return dict(zip(TOKF, r)) if r else None
+
+def _db_put(c, who):
+    import db
+    with db.connect() as cn, cn.cursor() as cur:
+        cur.execute("""insert into shopee.oauth_token
+            (shop_id, access_token, refresh_token, token_at, expire_in, updated_by)
+            values (%s,%s,%s,%s,%s,%s)
+            on conflict (shop_id) do update set
+              access_token = excluded.access_token,
+              refresh_token = excluded.refresh_token,
+              token_at = excluded.token_at,
+              expire_in = excluded.expire_in,
+              updated_by = excluded.updated_by,
+              updated_at = now()""",
+            (int(c['shop_id']), c['access_token'], c['refresh_token'],
+             int(c['token_at']), int(c.get('expire_in', 14400)), who))
+        cn.commit()
+
+def load():
+    """Thông tin tĩnh từ env/file + token từ DB (DB là bản gốc).
+
+    access_token hết hạn 4h và refresh_token tự đổi mỗi lần refresh, nên token
+    không thể nằm trong secret hay trong file: máy nào chạy job cũng phải đọc
+    và ghi chung một chỗ.
+    """
+    global _C
+    if _C:
+        return _C
+    c = _static()
+    try:
+        tok = _db_get(int(c['shop_id']))
+        if tok:
+            c.update(tok)
+    except Exception as e:
+        print(f'[token] không đọc được từ DB, dùng bản trong file: {e}', flush=True)
+    _C = c
+    return c
+
 def save(d):
-    os.makedirs(BASE, exist_ok=True)
-    with open(CRED, 'w') as f:
-        json.dump(d, f, indent=1)
-    os.chmod(CRED, 0o600)
+    global _C
+    _C = d
+    who = os.environ.get('RUNNER_NAME') and 'github-actions' or 'may-local'
+    try:
+        _db_put(d, who)
+    except Exception as e:
+        # Ghi DB thất bại là nghiêm trọng: lượt sau sẽ dùng refresh_token cũ đã
+        # bị Shopee vô hiệu -> phải báo to, không im lặng.
+        print(f'[token] LỖI: không ghi được token vào DB ({e}) — '
+              f'lượt chạy sau có thể mất quyền', flush=True)
+    if os.path.isdir(BASE):        # máy local: giữ file khớp để chạy tay vẫn được
+        with open(CRED, 'w') as f:
+            json.dump(d, f, indent=1)
+        os.chmod(CRED, 0o600)
 
 def sign(path, ts, partner_id, key, access_token='', shop_id=''):
     base = f"{partner_id}{path}{ts}{access_token}{shop_id}"
@@ -60,6 +128,8 @@ def refresh():
 
 def ensure_token(margin=600):
     """Tự refresh access_token nếu sắp hết hạn (mặc định còn <10 phút)."""
+    global _C
+    _C = None          # đọc lại từ DB: máy khác có thể vừa refresh xong
     c = load()
     age = int(time.time()) - int(c.get('token_at', 0))
     if age > int(c.get('expire_in', 14400)) - margin:

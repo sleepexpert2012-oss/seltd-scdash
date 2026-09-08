@@ -53,13 +53,23 @@ GitHub Pages phục vụ từ nhánh đó.
 Vite lấy `base` từ biến `PAGES_BASE` (script đặt `/<tên-repo>/`) vì Pages phục vụ ở
 đường dẫn con — chạy local vẫn dùng `/`.
 
-Không dùng GitHub Actions vì token của account này thiếu scope `workflow`, GitHub từ
-chối nhận file `.github/workflows/*`. Muốn chuyển sang tự build khi push thì chạy
-`gh auth refresh -h github.com -u sleepexpert2012-oss -s workflow` rồi copy
-`scripts/pages/github-actions-deploy.yml.txt` sang `.github/workflows/deploy.yml`.
+## Cập nhật số liệu
 
-Cập nhật số liệu: `python3 scripts/shopee/run_all.py` → commit `src/data/*.json`
-→ push → `./scripts/pages/deploy.sh`.
+Tự động: `.github/workflows/etl.yml` chạy 06:00 · 12:00 · 20:00 giờ VN trên máy của
+GitHub — kéo Shopee → Supabase → kết xuất `src/data/*.json` → build → đẩy `gh-pages`.
+Không phụ thuộc laptop có thức hay không. Chạy bù: tab **Actions** → *ETL Shopee +
+deploy app* → **Run workflow**.
+
+Actions chỉ đẩy nhánh `gh-pages`, **không** commit vào `main`. Muốn lưu lại phiên bản
+dữ liệu trong git thì chạy tay rồi commit `src/data/*.json` như trước.
+
+Token Shopee nằm ở bảng `shopee.oauth_token` trong Supabase, không nằm trong file:
+`access_token` hết hạn 4 giờ và `refresh_token` tự đổi mỗi lần làm mới, nên máy nào
+chạy job cũng phải đọc/ghi chung một chỗ. Secret của repo chỉ giữ phần tĩnh
+(`SUPABASE_DSN`, `SHOPEE_PARTNER_ID`, `SHOPEE_PARTNER_KEY`, `SHOPEE_SHOP_ID`).
+
+Chạy tay khi cần deploy ngay: `python3 scripts/shopee/run_all.py` →
+`./scripts/pages/deploy.sh`.
 
 Nếu sau này cần link **chỉ nội bộ mở được**: giữ repo private, deploy qua Cloudflare
 Pages và bật Cloudflare Access giới hạn theo email công ty (miễn phí tới 50 người).

@@ -6,6 +6,14 @@ from psycopg.types.json import Jsonb
 CRED = os.path.join(os.path.dirname(__file__), '..', '..', 'secrets', 'supabase.json')
 
 def dsn():
+    """Chuỗi kết nối: biến môi trường trước, file secrets sau.
+
+    Trên GitHub Actions không có file secrets/ (đã gitignore) nên phải lấy từ
+    secret SUPABASE_DSN; ở máy local vẫn đọc file như cũ.
+    """
+    env = os.environ.get('SUPABASE_DSN')
+    if env:
+        return env
     with open(CRED) as f:
         return json.load(f)['dsn']
 

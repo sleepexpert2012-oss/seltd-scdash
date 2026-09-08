@@ -34,13 +34,24 @@ const fmtDay = s => {
   const d = parse(s)
   return d ? d.toLocaleDateString('vi-VN', { timeZone: VN }) : '—'
 }
-/* Mốc so sánh là lúc KẾT XUẤT, không phải lúc mở trang: app là trang tĩnh nên
-   dữ liệu đóng băng tại lần kết xuất/deploy gần nhất. Lấy "bây giờ" mà so thì
-   trang càng để lâu càng báo gián đoạn oan. */
+/* Tuổi dữ liệu phải đo từ BÂY GIỜ, không phải từ lúc kết xuất.
+   Trước đây lấy mốc là lúc kết xuất với lý do "trang tĩnh, so với bây giờ thì
+   báo gián đoạn oan" — sai: mốc đóng băng nên hiệu số không bao giờ lớn lên,
+   app báo "Bình thường" vĩnh viễn dù job đã đứng cả ngày (07-08/09/2026).
+   Người xem đang nhìn số kéo lúc `pulled` vào lúc `NOW`, nên tuổi thật là
+   NOW - pulled. Tách làm 2 phần để biết lỗi ở đâu:
+     lagAtExport = EXPORT_AT - pulled  -> job không kéo được (ETL đứng)
+     PAGE_AGE_H  = NOW - EXPORT_AT     -> job kéo rồi nhưng chưa deploy lại */
 const EXPORT_AT = parse(infra.exportedAt) || new Date()
+const NOW = new Date()
+const PAGE_AGE_H = Math.max(0, (NOW - EXPORT_AT) / 36e5)
 const hoursTo = s => {
   const d = parse(s)
-  return d ? (EXPORT_AT - d) / 36e5 : null
+  return d ? (NOW - d) / 36e5 : null
+}
+const lagAtExport = s => {
+  const d = parse(s)
+  return d ? Math.max(0, (EXPORT_AT - d) / 36e5) : null
 }
 const ago = h => {
   if (h == null) return '—'
@@ -95,6 +106,7 @@ export default function Infra() {
       const pulled = row.pulled || job?.last_ok
       const h = hoursTo(pulled)
       return { t, ...info, rows: row.n || 0, lo: row.lo, hi: row.hi, pulled, h, st: stateOf(h),
+               lag: lagAtExport(pulled),
                fails: job?.fails || 0, runs: job?.runs || 0 }
     })
     const worst = cards.reduce((a, c) =>
@@ -136,6 +148,19 @@ export default function Infra() {
           <b>{STATE[d.worst].label}</b>
         </div>
       </div>
+
+      {PAGE_AGE_H > SLA_H && (
+        <div className={`inf-stale t-${stateOf(PAGE_AGE_H) === 'down' ? 'bad' : 'warn'}`}>
+          <b>⚠ Trang này đang xem số cũ — kết xuất cách đây {ago(PAGE_AGE_H)}</b>
+          <p>
+            Bình thường GitHub Actions kéo dữ liệu rồi deploy lại ngay, nên trang không
+            thể cũ quá {SLA_H} giờ. Cũ hơn thế nghĩa là <b>lượt chạy đã lỗi</b> — mở tab
+            Actions của repo để xem lượt đỏ, hoặc bấm “Run workflow” để chạy bù.
+            Dòng phụ dưới mỗi bảng cho biết lỗi ở đâu: “job trễ … ngay tại lúc kết xuất”
+            là Shopee/ETL không kéo được; còn nếu job vẫn kịp thì lỗi ở bước build/deploy.
+          </p>
+        </div>
+      )}
 
       <div className="mk-tabbar">
         <div className="mk-tabs">
@@ -265,8 +290,10 @@ function FlowTab({ d }) {
             <li><code>./scripts/pages/deploy.sh</code><em>Build và đẩy lên GitHub Pages</em></li>
           </ol>
           <p className="inf-hint">
-            Job launchd chạy sẵn 3 khung giờ {infra.schedule?.join(' · ')} nhưng
-            <b> chỉ cập nhật máy local</b>. Chưa deploy thì link công khai vẫn là số cũ.
+            Ba bước trên chỉ cần khi chạy tay (ví dụ vừa đổi Master Data). Bình thường
+            <b> GitHub Actions tự làm cả ba</b> vào {infra.schedule?.join(' · ')} —
+            kéo dữ liệu, build, rồi đẩy lên Pages, nên link công khai luôn khớp
+            với lần chạy gần nhất.
           </p>
         </section>
       </div>
@@ -390,14 +417,17 @@ function SourcesTab({ d, imp, setImp, busy, fileRef, onPick }) {
         <div className="m2-head">
           <h3>⇅ Dữ liệu kéo từ Shopee Open API</h3>
           <span>Mỗi bảng một ô riêng: kéo bằng API nào, giữ bao nhiêu cột, có bao nhiêu dòng,
-            và lần cập nhật gần nhất — quá {SLA_H} giờ không chạy là đã trượt ít nhất một lượt
-            trong lịch 3 khung giờ</span>
+            và lần cập nhật gần nhất — quá {SLA_H} giờ không có số mới là đã trượt ít nhất
+            một lượt trong lịch 3 khung giờ. “Tuổi” tính từ bây giờ, gồm cả thời gian
+            trang chưa được deploy lại ({ago(PAGE_AGE_H)})</span>
           <div className="group-ctrl">
             <button onClick={() => exportRowsXlsx('Trang thai kho du lieu.xlsx', {
               'Bang du lieu': d.cards.map(c => ({
                 bang: c.t, ten: c.label, api: c.api, so_dong: c.rows,
                 tu: c.lo || '', den: c.hi || '', cap_nhat_cuoi: c.pulled || '',
-                tre_gio: c.h == null ? '' : +c.h.toFixed(1), trang_thai: STATE[c.st].label,
+                tuoi_gio: c.h == null ? '' : +c.h.toFixed(1),
+                tre_khi_ket_xuat_gio: c.lag == null ? '' : +c.lag.toFixed(1),
+                trang_thai: STATE[c.st].label,
               })),
             })}>⬇ Kết xuất trạng thái</button>
           </div>
@@ -417,7 +447,14 @@ function SourcesTab({ d, imp, setImp, busy, fileRef, onPick }) {
                 {c.lo && <><dt>Phạm vi</dt><dd>{fmtDay(c.lo)} → {fmtDay(c.hi)}</dd></>}
                 <dt>Cập nhật</dt>
                 <dd className={c.st === 'ok' ? '' : 'hl'}>
-                  {fmt(c.pulled)}{c.h != null && <em> · trễ {ago(c.h)}</em>}
+                  {fmt(c.pulled)}{c.h != null && <em> · cũ {ago(c.h)}</em>}
+                  {c.lag != null && (
+                    <em className="sub">
+                      {c.lag > SLA_H
+                        ? `job trễ ${ago(c.lag)} ngay tại lúc kết xuất`
+                        : `job vẫn kịp lúc kết xuất (trễ ${ago(c.lag)})`}
+                    </em>
+                  )}
                 </dd>
                 {c.fails > 0 && (
                   <><dt>Lịch sử</dt>
@@ -584,10 +621,11 @@ function StackTab({ d }) {
                   ['Nguồn bán hàng', 'Shopee Open API v2', 'Ký HMAC-SHA256, token 4 giờ tự làm mới, uỷ quyền 365 ngày'],
                   ['Kho dữ liệu', 'Supabase Postgres (ap-southeast-1)', 'Schema shopee, RLS bật toàn bộ bảng'],
                   ['Kết nối ETL', 'Session pooler IPv4', 'Host trực tiếp chỉ có IPv6 nên máy local không tới được'],
+                  ['Token Shopee', 'Bảng shopee.oauth_token', 'Nằm trong DB, không nằm trong file — máy nào chạy job cũng dùng chung'],
                   ['Lớp phân tích', 'View stg_* / mart_*', 'Phẳng hoá jsonb rồi tính chỉ số ngay trong SQL'],
-                  ['Hẹn giờ', 'launchd (macOS)', `com.seltd.scdash.etl — ${infra.schedule?.join(' · ')}`],
+                  ['Hẹn giờ', 'GitHub Actions', `.github/workflows/etl.yml — ${infra.schedule?.join(' · ')}, chạy trên máy của GitHub nên không phụ thuộc laptop`],
                   ['Ứng dụng', 'React 19 + Vite + Recharts', 'Trang tĩnh, không có server'],
-                  ['Nơi chạy', 'GitHub Pages — nhánh gh-pages', 'Build local rồi đẩy lên bằng scripts/pages/deploy.sh'],
+                  ['Nơi chạy', 'GitHub Pages — nhánh gh-pages', 'Actions build và đẩy sau mỗi lượt ETL; chạy tay bằng scripts/pages/deploy.sh'],
                 ].map(([a, b, c]) => (
                   <tr key={a}><td><b>{a}</b></td><td className="mono sm">{b}</td><td className="sm">{c}</td></tr>
                 ))}

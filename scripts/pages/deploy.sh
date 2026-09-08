@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # Build và đẩy bản tĩnh lên nhánh gh-pages.
 #
-# Vì sao không dùng GitHub Actions: token của account sleepexpert2012-oss không có
-# scope `workflow` nên GitHub từ chối nhận file .github/workflows/*. Cách này chỉ cần
-# scope `repo`. Muốn quay lại Actions thì chạy:
-#     gh auth refresh -h github.com -u sleepexpert2012-oss -s workflow
-# rồi copy scripts/pages/github-actions-deploy.yml.txt -> .github/workflows/deploy.yml
+# Đây là đường chạy TAY. Bình thường .github/workflows/etl.yml lo việc này: Actions
+# kéo dữ liệu Shopee rồi build + deploy luôn, 3 khung giờ mỗi ngày.
+# Dùng script này khi cần deploy ngay mà không chờ lượt, ví dụ vừa sửa code hoặc
+# vừa đổi Master Data. Chỉ cần token scope `repo`.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 

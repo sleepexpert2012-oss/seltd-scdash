@@ -113,10 +113,13 @@ Cửa sổ dữ liệu 2026-04 → nay (API ads chỉ lưu ~5 tháng).
 |---|---|
 | Repo | https://github.com/sleepexpert2012-oss/seltd-scdash — **PUBLIC** |
 | Bản chạy | https://sleepexpert2012-oss.github.io/seltd-scdash/ |
-| Deploy | `./scripts/pages/deploy.sh` — build rồi đẩy `dist/` lên nhánh `gh-pages` |
+| Deploy tự động | `.github/workflows/etl.yml` — 06:00 · 12:00 · 20:00 giờ VN: kéo Shopee → build → đẩy `gh-pages` |
+| Deploy tay | `./scripts/pages/deploy.sh` — build rồi đẩy `dist/` lên nhánh `gh-pages` |
+| Token Shopee | bảng `shopee.oauth_token` trong Supabase (không nằm trong file) |
 
-Không dùng GitHub Actions vì token account này thiếu scope `workflow`.
-File workflow giữ sẵn ở `scripts/pages/github-actions-deploy.yml.txt`.
+Chuyển từ launchd sang Actions ngày 08/09/2026: chạy trên laptop thì máy ngủ là mất
+lượt, và job cũ không deploy nên link public đứng ở bản cũ dù job vẫn chạy.
+Bản workflow cũ chưa dùng đã chuyển vào `obsolete/2026-09/`.
 
 ⚠️ Repo public nên toàn bộ `src/data/` (giá vốn, giá mua NCC, công nợ, GM%, tồn kho,
 chi phí ads) là công khai. Khoá API KHÔNG bị lộ — `secrets/` đã gitignore và đã kiểm bundle.
