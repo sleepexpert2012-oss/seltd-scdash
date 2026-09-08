@@ -155,3 +155,9 @@ không ghi ngầm. Có Lịch sử thay đổi + nút Khôi phục.
 
 ⚠️ Khoá gọi đám mây là công khai (repo public). anon chỉ đọc/ghi được bảng tồn ảo,
 KHÔNG chạm được schema `shopee`. Muốn chặn hẳn thì cần Supabase Auth.
+
+## knowledge/ — thứ cần đọc lại sau này
+| File | Nội dung |
+|---|---|
+| `knowledge/2026-09-08_dong-bo-dut-ma-app-bao-binh-thuong.md` | Chẩn đoán 4 lỗi làm đồng bộ đứng mà app vẫn báo "Bình thường"; chuyển ETL sang GitHub Actions; token Shopee vào bảng `shopee.oauth_token` |
+| `knowledge/LESSONS.md` | Bài học dồn theo ngày — mỗi entry: việc · sai gì · sửa gì · rule rút ra |
