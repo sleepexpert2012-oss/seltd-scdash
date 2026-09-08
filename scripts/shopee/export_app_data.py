@@ -114,7 +114,10 @@ def main():
 
     months = sorted({r['ym'].replace('-', '.') for r in m})
     mi = {v: i for i, v in enumerate(months)}
-    now = dt.datetime.now().isoformat(timespec='seconds')
+    # Phải ghi kèm múi giờ +07:00. Trước đây ghi giờ máy không có múi: chạy trên
+    # laptop thì tình cờ đúng, nhưng chạy trên GitHub Actions (UTC) thì app đọc
+    # thành giờ VN và lệch 7 tiếng -> báo "trang đang xem số cũ" oan.
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).isoformat(timespec='seconds')
 
     meta = {'kind': 'REAL', 'source': 'Shopee Open API v2 -> Supabase (schema shopee)',
             'shop': 'Tuft & Needle by Sleep Expert (1448395105)',
