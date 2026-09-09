@@ -71,14 +71,14 @@ def do_setting(conn, ids):
                          db.ts(dur.get('end_time')), ci.get('item_id_list') or [],
                          db.J(c), now))
         time.sleep(0.3)
-    with conn.cursor() as cur:
-        n = db.upsert(cur, 'shopee.raw_ads_campaign',
-                      ['campaign_id', 'shop_id', 'ad_name', 'ad_type', 'campaign_status',
-                       'bidding_method', 'placement', 'budget', 'roas_target',
-                       'start_time', 'end_time', 'item_ids', 'payload', 'fetched_at'],
-                      rows, ['campaign_id'])
+    with db.Run(conn, 'ads_campaign_setting') as job, conn.cursor() as cur:
+        job.n = db.upsert(cur, 'shopee.raw_ads_campaign',
+                          ['campaign_id', 'shop_id', 'ad_name', 'ad_type', 'campaign_status',
+                           'bidding_method', 'placement', 'budget', 'roas_target',
+                           'start_time', 'end_time', 'item_ids', 'payload', 'fetched_at'],
+                          rows, ['campaign_id'])
     conn.commit()
-    return n
+    return job.n
 
 def do_campaign(conn, d0, d1, ids):
     now = dt.datetime.now(dt.timezone.utc)

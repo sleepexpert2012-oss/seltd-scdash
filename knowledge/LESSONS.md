@@ -84,3 +84,17 @@
   phép kiểm tính lại mỗi lần mở trang.
 - **Rule rút ra**: mỗi lỗi tìm được bằng tay nên biến thành **một phép kiểm sống**
   trong app. Audit một lần chỉ sạch một lần; phép kiểm thì bắt được lần sau.
+
+## 09/09/2026 — Nhật ký đặt sai chỗ thì mất luôn khả năng phát hiện
+- **Việc**: anh Louis thấy `fact_return` "lần cuối 07/09" trong khi job chạy đủ.
+- **Sai gì**: `db.Run(...)` đặt trong `if __name__ == '__main__'` chứ không trong hàm
+  mà `run_all.py` gọi. Chạy tay có nhật ký, chạy theo lịch không có. Ba bước bị vậy.
+  Dữ liệu vẫn đúng nên không ai thấy gì sai — nhưng nếu bước đó hỏng thật thì bảng
+  theo dõi cũng hiện y như thế.
+- **Rule rút ra**:
+  1. Ghi nhật ký phải nằm **trong hàm làm việc**, không nằm ở entry point. Entry
+     point chỉ gọi hàm.
+  2. Sau khi dựng bảng theo dõi, phải kiểm **mọi bước đều xuất hiện trong đó** —
+     bước im lặng nhìn giống bước khoẻ.
+  3. Bộ tự soát phải có một phép kiểm cho **chính bộ theo dõi**: mọi job phải ghi
+     nhật ký ở cùng một lượt. Tôi bỏ sót phép kiểm này ở đợt audit hôm trước.

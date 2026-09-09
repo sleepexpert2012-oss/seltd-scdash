@@ -10,12 +10,12 @@ def do_warehouse(conn):
     r = sc.call_ok('/api/v2/shop/get_warehouse_detail')
     rows = [(w['location_id'], w.get('warehouse_id'), w.get('warehouse_name'), db.J(w), now)
             for w in r['response']]
-    with conn.cursor() as cur:
-        n = db.upsert(cur, 'shopee.raw_warehouse',
-                      ['location_id', 'warehouse_id', 'warehouse_name', 'payload', 'fetched_at'],
-                      rows, ['location_id'])
+    with db.Run(conn, 'dim_warehouse') as job, conn.cursor() as cur:
+        job.n = db.upsert(cur, 'shopee.raw_warehouse',
+                          ['location_id', 'warehouse_id', 'warehouse_name', 'payload', 'fetched_at'],
+                          rows, ['location_id'])
     conn.commit()
-    return n
+    return job.n
 
 def do_snapshot(conn, snap=None):
     """Đọc stock_info_v2 từ raw_model (đã kéo ở etl_dim) và chụp ảnh tồn hôm nay."""

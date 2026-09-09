@@ -22,21 +22,26 @@ def fetch_all(t0=None, t1=None):
     return out
 
 def save(conn, items):
+    """Ghi đơn hoàn + ghi nhật ký vào shopee.etl_run.
+
+    db.Run PHẢI nằm trong hàm này, không phải trong khối __main__: run_all.py gọi
+    save() trực tiếp nên nếu để ở __main__ thì job chạy đủ mỗi lượt mà nhật ký
+    đứng im. Đã xảy ra thật — 08/09/2026 anh Louis thấy fact_return "lần cuối
+    07/09" trong khi dữ liệu vẫn được kéo mỗi lượt.
+    """
     now = dt.datetime.now(dt.timezone.utc)
     rows = [(x['return_sn'], x.get('order_sn'), SHOP_ID, x.get('status'),
              db.ts(x.get('create_time')), db.ts(x.get('update_time')), db.J(x), now)
             for x in items]
-    with conn.cursor() as cur:
-        n = db.upsert(cur, 'shopee.raw_return',
-                      ['return_sn', 'order_sn', 'shop_id', 'status',
-                       'create_time', 'update_time', 'payload', 'fetched_at'],
-                      rows, ['return_sn'])
+    with db.Run(conn, 'fact_return') as job, conn.cursor() as cur:
+        job.n = db.upsert(cur, 'shopee.raw_return',
+                          ['return_sn', 'order_sn', 'shop_id', 'status',
+                           'create_time', 'update_time', 'payload', 'fetched_at'],
+                          rows, ['return_sn'])
     conn.commit()
-    return n
+    return job.n
 
 if __name__ == '__main__':
     with db.connect() as conn:
-        with db.Run(conn, 'fact_return') as job:
-            items = fetch_all()
-            job.n = save(conn, items)
-        print('raw_return:', job.n, 'đơn hoàn')
+        n = save(conn, fetch_all())
+    print('raw_return:', n, 'đơn hoàn')

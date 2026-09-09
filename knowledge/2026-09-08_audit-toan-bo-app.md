@@ -138,3 +138,31 @@ cảnh báo đang là 9 giờ — chỉ dư 0,6 giờ. **Đã nâng `SLA_H` 9 ->
 
 Nếu cần dữ liệu đúng giờ sáng thì phải đặt cron sớm hơn để bù độ trễ, hoặc chuyển
 job sang nơi chạy đúng giờ — không phải Actions.
+
+## LỖI 4 (vừa, đã sửa) — Ba bước ETL không ghi nhật ký, bảng theo dõi nói sai
+Anh Louis phát hiện 09/09/2026: bảng "Từng việc trong job chạy thế nào" báo
+`fact_return` lần cuối **07/09** trong khi mọi job khác chạy đủ mỗi lượt.
+
+**Dữ liệu KHÔNG đứng** — `raw_return` có 112 đơn, đơn hoàn mới nhất tạo 09/09 00:13,
+`fetched_at` = 09/09 16:24, tức vẫn kéo mỗi lượt. Cái đứng là **nhật ký**.
+
+Nguyên nhân: `db.Run(...)` đặt trong khối `if __name__ == '__main__'` chứ không đặt
+trong hàm mà `run_all.py` gọi. Chạy tay thì có nhật ký, chạy theo lịch thì không.
+Ba bước bị vậy:
+
+| Bước | Hàm | Tên job (mới đặt) |
+|---|---|---|
+| đơn hoàn | `etl_return.save()` | `fact_return` |
+| danh sách kho | `etl_stock.do_warehouse()` | `dim_warehouse` |
+| cấu hình chiến dịch ads | `etl_ads.do_setting()` | `ads_campaign_setting` |
+
+Sửa: đưa `db.Run` vào trong hàm, `__main__` gọi lại hàm đó. Sau sửa: **12/12 job**
+ghi nhật ký ở cùng một lượt.
+
+Đây là loại lỗi tệ hơn lỗi dữ liệu: dữ liệu vẫn đúng nên không ai thấy gì sai, nhưng
+**bảng theo dõi mất khả năng phát hiện gián đoạn thật** — nếu bước đơn hoàn hỏng
+thật thì nhật ký vẫn hiện y như vậy.
+
+Đã thêm **phép kiểm số 10** vào tab Tự soát dữ liệu: mọi bước ETL phải ghi nhật ký
+ở lượt gần nhất (lệch quá 3 giờ so với bước mới nhất là báo). Kiểm bằng cách lùi
+mốc `fact_return` về 07/09 → hiện đúng "1/12 bước tụt lại: fact_return".

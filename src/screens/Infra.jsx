@@ -123,6 +123,32 @@ function runChecks() {
       : 'chưa khai SKU nào',
     'Khai nhiều hơn tồn Shopee nghĩa là số khai sai, hoặc tồn đã bán hết — trừ ra sẽ về 0 và mất dấu.')
 
+  /* 10. Mọi bước ETL phải ghi nhật ký ở CÙNG một lượt chạy.
+        Lỗi thật 09/09/2026: anh Louis thấy fact_return "lần cuối 07/09" trong
+        khi dữ liệu vẫn được kéo mỗi lượt — vì db.Run nằm trong khối __main__
+        chứ không trong hàm mà run_all.py gọi. Ba bước bị vậy: fact_return,
+        dim_warehouse, ads_campaign_setting. Dữ liệu đúng nhưng bảng theo dõi
+        nói sai, tức mất khả năng phát hiện gián đoạn thật. */
+  const jobs = infra.jobs || []
+  const tOf = x => {
+    const v = x?.last_ok || x?.last_run
+    if (!v) return null
+    const dd = new Date(String(v).replace(' ', 'T').replace(/\+00$/, '+00:00'))
+    return isNaN(dd) ? null : dd.getTime()
+  }
+  const times = jobs.map(tOf).filter(Boolean)
+  const newest = times.length ? Math.max(...times) : null
+  const behind = newest
+    ? jobs.filter(j => { const t = tOf(j); return t == null || (newest - t) / 36e5 > 3 })
+    : []
+  add('job-log', 'Mọi bước ETL đều ghi nhật ký ở lượt gần nhất',
+    behind.length ? 'bad' : 'ok',
+    behind.length
+      ? `${behind.length}/${jobs.length} bước tụt lại: ${behind.map(j => j.job).join(', ')}`
+      : `${jobs.length} bước đều ghi ở lượt gần nhất`,
+    'Bước nào không ghi nhật ký thì bảng theo dõi báo "lần cuối" đứng im dù dữ liệu vẫn về — '
+    + 'mất luôn khả năng phát hiện khi nó thật sự hỏng.')
+
   return out
 }
 
@@ -150,7 +176,7 @@ function CheckTab({ checks }) {
       </div>
       <section className="m2-panel">
         <div className="m2-head">
-          <h3>Chín phép kiểm dữ liệu</h3>
+          <h3>Mười phép kiểm dữ liệu</h3>
           <span>“Cần biết” là giới hạn của nguồn dữ liệu, không phải lỗi app —
             nhưng phải biết để đọc số cho đúng</span>
         </div>
