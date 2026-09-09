@@ -252,3 +252,40 @@
   .mk-page .m2-panel { break-inside: avoid-page; }
   .mk-page table { font-size: 9px; }
 }
+
+/* Dải KPI chia nhóm — 16 chỉ số để phẳng một dải thì không đọc được */
+.mk-kpigrp { margin-bottom: 10px; }
+.mk-kpigrp-h {
+  font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 5px 2px;
+}
+.mk-kpis.n4 { grid-template-columns: repeat(4, 1fr); }
+.mk-kpis.n6 { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 1400px) { .mk-kpis.n6 { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 1100px) {
+  .mk-kpis.n4 { grid-template-columns: repeat(2, 1fr); }
+  .mk-kpis.n6 { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Bộ chọn mức thời gian cho các biểu đồ phía quảng cáo */
+.mk-gran {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); padding: 8px 12px;
+}
+.mk-gran > b { font-size: 10px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); }
+.mk-granbtns { display: flex; gap: 3px; background: var(--surface-soft);
+  border: 1px solid var(--line); border-radius: var(--r-pill); padding: 2px; }
+.mk-granbtns button {
+  height: 24px; padding: 0 12px; border: 0; border-radius: var(--r-pill);
+  background: transparent; color: var(--ink-2);
+  font-size: 11px; font-weight: 650; cursor: pointer;
+}
+.mk-granbtns button:hover { background: #fff; color: var(--ink); }
+.mk-granbtns button.on { background: var(--navy); color: #fff; }
+.mk-gran .hint { font-size: 10.5px; color: var(--muted); }
+
+/* Bộ chọn mức thời gian và dải cảnh báo nằm trong lưới 2 cột của tab Tổng quan
+   -> cho chiếm hết chiều ngang, không lọt một ô */
+.mk-row2 > .mk-gran, .mk-row2 > .mk-clip { grid-column: 1 / -1; }

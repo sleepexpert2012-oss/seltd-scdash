@@ -50,6 +50,32 @@ def main():
             left join (select ym, sum(expense) ads_camp from shopee.stg_ads_campaign_day group by 1) k
                    using (ym)
             order by a.ym""")
+        # Chuỗi theo NGÀY và theo GIỜ, cấp toàn shop — để màn Marketing đổi được
+        # mức thời gian (giờ/ngày/tuần/tháng/năm). Ngày gộp lên được tuần/tháng/năm
+        # ngay tại app; giờ thì chỉ có ở cấp shop nên không lọc theo ngành/SKU.
+        mk_shop_day = rd(cur, """
+            select stat_date::text d,
+                   (payload->>'expense')::numeric        expense,
+                   (payload->>'impression')::numeric     impression,
+                   (payload->>'clicks')::numeric         clicks,
+                   (payload->>'broad_order')::numeric    ads_order,
+                   (payload->>'broad_gmv')::numeric      ads_gmv,
+                   (payload->>'direct_order')::numeric   ads_order_tt,
+                   (payload->>'direct_gmv')::numeric     ads_gmv_tt
+            from shopee.raw_ads_shop_daily order by stat_date""")
+        mk_shop_hour = rd(cur, """
+            select stat_date::text d, hour h,
+                   (payload->>'expense')::numeric        expense,
+                   (payload->>'impression')::numeric     impression,
+                   (payload->>'clicks')::numeric         clicks,
+                   (payload->>'broad_order')::numeric    ads_order,
+                   (payload->>'broad_gmv')::numeric      ads_gmv
+            from shopee.raw_ads_shop_hourly
+            -- bỏ các giờ không có gì xảy ra: phần lớn giờ đêm rỗng, giữ lại chỉ
+            -- làm file to mà không thêm thông tin. App tự hiểu giờ thiếu = 0.
+            where (payload->>'impression')::numeric > 0
+               or (payload->>'expense')::numeric > 0
+            order by stat_date, hour""")
         mk_item = rd(cur, """
             select item_id::text, ym, item_name, nganh, class_name, so_chien_dich,
                    expense, impression, clicks, ads_order, ads_gmv,
@@ -184,7 +210,8 @@ def main():
                              'ROAS thật = GMV ads × chất lượng đơn của chính sản phẩm ÷ chi phí ads.')},
            'months': clean(mk_month), 'items': clean(mk_item),
            'nganh': clean(mk_nganh), 'campaigns': clean(mk_camp),
-           'campaignMonths': clean(mk_camp_m)}
+           'campaignMonths': clean(mk_camp_m),
+           'shopDay': clean(mk_shop_day), 'shopHour': clean(mk_shop_hour)}
 
     # nhật ký phiên bản app lấy từ git log — để màn Cơ sở hạ tầng xem app đổi gì khi nào
     def git_log(n=60):

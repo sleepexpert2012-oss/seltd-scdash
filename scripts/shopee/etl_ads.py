@@ -51,6 +51,43 @@ def campaign_ids():
         time.sleep(0.25)
     return out
 
+def do_hourly(conn, d0, d1):
+    """Quảng cáo theo GIỜ, cấp toàn shop -> raw_ads_shop_hourly.
+
+    API nhận MỘT ngày mỗi lần (`performance_date`, dạng DD-MM-YYYY) và chỉ trả số
+    cấp shop — không tách được theo chiến dịch/sản phẩm, nên mọi biểu đồ mức giờ
+    là số toàn shop. Ngày hôm nay chỉ có các giờ đã trôi qua, và vì job chạy 3
+    khung giờ nên các giờ cuối ngày luôn về muộn.
+    """
+    now = dt.datetime.now(dt.timezone.utc)
+    with db.Run(conn, 'ads_shop_hourly',
+                db.ts(int(dt.datetime.combine(d0, dt.time()).timestamp())),
+                db.ts(int(dt.datetime.combine(d1, dt.time()).timestamp()))) as job:
+        rows, ngay_loi = [], 0
+        d = d0
+        while d <= d1:
+            try:
+                r = sc.call_ok('/api/v2/ads/get_all_cpc_ads_hourly_performance',
+                               params={'performance_date': d.strftime(F)})
+                for x in r.get('response') or []:
+                    h = x.get('hour')
+                    if h is None:
+                        continue
+                    rows.append((SHOP_ID, d, int(h), db.J(x), now))
+            except Exception as e:
+                ngay_loi += 1
+                print(f'  {d}: BỎ QUA ({str(e)[:60]})')
+            d += dt.timedelta(days=1)
+            time.sleep(0.2)
+        with conn.cursor() as cur:
+            job.n = db.upsert(cur, 'shopee.raw_ads_shop_hourly',
+                              ['shop_id', 'stat_date', 'hour', 'payload', 'fetched_at'],
+                              rows, ['shop_id', 'stat_date', 'hour'])
+        conn.commit()
+        if ngay_loi:
+            job.note = f'{ngay_loi} ngày lỗi'
+    return job.n
+
 def do_setting(conn, ids):
     """Cấu hình từng chiến dịch: tên, trạng thái, ngân sách, mục tiêu ROAS và
     DANH SÁCH item_id — đây là mắt nối duy nhất giữa ads và sản phẩm/ngành hàng."""

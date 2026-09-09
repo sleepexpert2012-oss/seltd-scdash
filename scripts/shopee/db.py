@@ -44,6 +44,7 @@ class Run:
     """Ghi nhật ký 1 lần chạy job vào shopee.etl_run."""
     def __init__(self, conn, job, w_from=None, w_to=None):
         self.c, self.job, self.f, self.t, self.n = conn, job, w_from, w_to, 0
+        self.note = None        # bước tự ghi chú khi chạy xong mà vẫn thành công
     def __enter__(self):
         with self.c.cursor() as cur:
             cur.execute("insert into shopee.etl_run (job, window_from, window_to) "
@@ -53,7 +54,8 @@ class Run:
         return self
     def __exit__(self, et, ev, tb):
         with self.c.cursor() as cur:
+            note = self.note if et is None else str(ev)[:500]
             cur.execute("update shopee.etl_run set finished_at=now(), rows_in=%s, ok=%s, note=%s "
-                        "where id=%s", (self.n, et is None, None if et is None else str(ev)[:500], self.id))
+                        "where id=%s", (self.n, et is None, note, self.id))
         self.c.commit()
         return False

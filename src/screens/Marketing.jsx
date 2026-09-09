@@ -180,6 +180,7 @@ const toDot = m => (m || '').replace('-', '.')
 
 export default function Marketing({ filters, setFilters }) {
   const [tab, setTab] = useState('overview')
+  const [gran, setGran] = useState('month')   // mức thời gian của biểu đồ ads
   const [openNg, setOpenNg] = useState(() => new Set(DIAG.map(g => g.id)))
   const drill = useDrill()
 
@@ -409,24 +410,164 @@ export default function Marketing({ filters, setFilters }) {
       return { ...g, rows, expense: rows.reduce((s, r) => s + (r.expense || 0), 0), budget: rows.reduce((s, r) => s + (r.budget || 0), 0) }
     }).filter(g => g.rows.length)
 
-    return { kpi, series, byNganh, byItem, camps, diagGroups, items, full }
+    /* ---------- CHUỖI THEO MỨC THỜI GIAN ----------
+       Tháng và năm dựng từ `series` (đã lọc theo ngành/loại hình/SKU).
+       Giờ / ngày / tuần chỉ có ở CẤP TOÀN SHOP: API ads của Shopee trả theo ngày
+       và theo giờ ở cấp shop, không tách theo chiến dịch hay sản phẩm — nên ở ba
+       mức đó bộ lọc chiều KHÔNG áp dụng, và màn phải nói rõ chứ không được lặng.
+       Ba mức đó cũng không có doanh thu/giá vốn nên không tính được ROAS thật,
+       chất lượng đơn hay lợi nhuận; chỉ có các chỉ số phía quảng cáo. */
+    const inWin = ds => MW.includes(ds.slice(0, 7))
+    const adsRow = (label, r) => ({
+      label,
+      ads: (r.expense || 0) / 1e6,
+      imp: r.impression || 0,
+      clk: r.clicks || 0,
+      ord: r.ads_order || 0,
+      ctr: r.impression > 0 ? r.clicks / r.impression : null,
+      cpc: r.clicks > 0 ? r.expense / r.clicks : null,
+      cr: r.clicks > 0 ? r.ads_order / r.clicks : null,
+      cpo: r.ads_order > 0 ? r.expense / r.ads_order / 1e6 : null,
+      roasS: r.expense > 0 ? r.ads_gmv / r.expense : null,
+      adsKhac: 0,
+    })
+    const foldSum = rows => rows.reduce((a, r) => {
+      for (const k of ['expense', 'impression', 'clicks', 'ads_order', 'ads_gmv']) {
+        a[k] = (a[k] || 0) + (r[k] || 0)
+      }
+      return a
+    }, {})
+    const groupAds = (rows, keyOf, labelOf) => {
+      const m = new Map()
+      for (const r of rows) {
+        const k = keyOf(r)
+        if (!m.has(k)) m.set(k, [])
+        m.get(k).push(r)
+      }
+      return [...m.entries()].sort((x, y) => (x[0] > y[0] ? 1 : -1))
+        .map(([k, rs]) => adsRow(labelOf(k), foldSum(rs)))
+    }
+    /* Tuần ISO: dịch về thứ Năm của tuần đó rồi đánh số so với 04/01 */
+    const isoWeek = ds => {
+      const dd = new Date(ds + 'T00:00:00Z')
+      const wd = (dd.getUTCDay() + 6) % 7
+      dd.setUTCDate(dd.getUTCDate() - wd + 3)
+      const y = dd.getUTCFullYear()
+      const jan4 = Date.UTC(y, 0, 4)
+      const w = 1 + Math.round((dd.getTime() - jan4) / 6048e5)
+      return `${y}-W${String(w).padStart(2, '0')}`
+    }
+    const shopDay = (mkt.shopDay || []).filter(r => inWin(r.d))
+    const shopHour = (mkt.shopHour || []).filter(r => inWin(r.d))
+    /* Năm: gộp chuỗi tháng đã lọc, nên vẫn tôn trọng bộ lọc chiều */
+    const byYear = (() => {
+      const m = new Map()
+      for (const r of series) {
+        const y = '20' + r.label.slice(0, 2)
+        const t = m.get(y) || { label: y, ads: 0, imp: 0, clk: 0, ord: 0,
+                                _exp: 0, _gmv: 0, adsKhac: 0 }
+        t.ads += r.ads || 0; t.adsKhac += r.adsKhac || 0
+        t.imp += r.imp || 0; t.clk += r.clk || 0; t.ord += r.ord || 0
+        t._exp += (r.ads || 0) * 1e6; t._gmv += (r.roasS || 0) * (r.ads || 0) * 1e6
+        m.set(y, t)
+      }
+      return [...m.values()].map(t => ({
+        ...t,
+        ctr: t.imp > 0 ? t.clk / t.imp : null,
+        cpc: t.clk > 0 ? t._exp / t.clk : null,
+        cr: t.clk > 0 ? t.ord / t.clk : null,
+        cpo: t.ord > 0 ? t._exp / t.ord / 1e6 : null,
+        roasS: t._exp > 0 ? t._gmv / t._exp : null,
+      }))
+    })()
+    /* Dữ liệu giờ phủ không đều (job chỉ kéo 10 ngày mỗi lượt), nên mức Giờ phải
+       khai rõ nó gộp từ bao nhiêu ngày trên tổng số ngày của kỳ — không thì người
+       đọc tưởng đó là nhịp giờ của cả kỳ. */
+    const hourDays = new Set(shopHour.map(r => r.d)).size
+    const winDays = new Set(shopDay.map(r => r.d)).size
+    const tseries = {
+      /* Giờ: gộp 24 giờ của CẢ KỲ. Vẽ từng giờ của từng ngày thì hàng nghìn mốc,
+         không đọc được. Câu hỏi có ích là "giờ nào trong ngày đắt / hiệu quả". */
+      hour: (() => {
+        const rows = groupAds(shopHour, r => String(r.h).padStart(2, '0'), k => `${k}h`)
+        const have = new Set(rows.map(r => r.label))
+        for (let h = 0; h < 24; h++) {
+          const lb = `${String(h).padStart(2, '0')}h`
+          if (!have.has(lb)) rows.push(adsRow(lb, {}))
+        }
+        return rows.sort((x, y) => (x.label > y.label ? 1 : -1))
+      })(),
+      day: groupAds(shopDay, r => r.d, k => k.slice(5).replace('-', '/')),
+      week: groupAds(shopDay, r => isoWeek(r.d), k => `T${k.slice(6)}/${k.slice(2, 4)}`),
+      month: series,
+      year: byYear,
+      _cover: { hourDays, winDays },
+    }
+
+    return { kpi, series, tseries, byNganh, byItem, camps, diagGroups, items, full }
   }, [win, filters.nganh, filters.loaiHinh, filters.q])
 
   const { kpi, series, byNganh, byItem, camps, diagGroups } = d
 
-  const KPI = [
-    { k: 'Chi phí quảng cáo', v: trieu(kpi.expShop), u: 'triệu',
-      sub: kpi.expKhac > 0
-        ? `${trieu(kpi.exp)} tr gán được chiến dịch · ${trieu(kpi.expKhac)} tr chưa gán (${pct(kpi.expKhacRate, 0)})`
-        : `${num(kpi.imp)} hiển thị · ${num(kpi.clk)} click`,
-      tone: kpi.expKhacRate > 0.1 ? 'amber' : 'blue' },
-    { k: 'ROAS Shopee', v: fmtRoas(kpi.roasS), u: 'trên GMV', sub: 'số Shopee báo — tính cả đơn bị huỷ', tone: 'grey' },
-    { k: 'ROAS thật', v: fmtRoas(kpi.roasR), u: 'trên doanh thu', sub: `sau khi trừ huỷ/hoàn/giảm giá (${pct(kpi.netRate)})`, tone: kpi.beRoas && kpi.roasR >= kpi.beRoas ? 'good' : 'bad' },
-    { k: 'ROAS hoà vốn', v: fmtBe(kpi.beRoas), u: 'ngưỡng phải vượt', sub: `GM ${pct(kpi.gm)} − phí sàn ${pct(kpi.feeRate)}`, tone: 'amber' },
-    { k: 'Chi phí / đơn', v: trieu(kpi.cpo, 2), u: 'triệu/đơn ads',
-      sub: `CPC ${num(kpi.cpc)} đ · CTR ${pct(kpi.ctr, 2)} — tính trên phần gán được chiến dịch`, tone: 'grey' },
-    { k: 'TACOS', v: pct(kpi.tacos, 1), u: 'toàn bộ ads ÷ doanh thu',
-      sub: `ads đóng ${pct(kpi.adsShare)} GMV sản phẩm được QC`, tone: 'grey' },
+  /* Thẻ KPI chia 3 nhóm: 16 chỉ số để cùng một dải phẳng thì không đọc được,
+     nên gom theo câu hỏi mà từng nhóm trả lời.
+     Nhóm "Phễu" tính trên phần chi phí gán được chiến dịch (chỉ phần đó có
+     lượt xem/click); nhóm "Hiệu quả tiền" dùng tổng chi phí toàn shop. */
+  const KPI_GROUPS = [
+    {
+      g: 'Quy mô',
+      items: [
+        { k: 'Chi phí quảng cáo', v: trieu(kpi.expShop), u: 'triệu',
+          sub: kpi.expKhac > 0
+            ? `${trieu(kpi.exp)} tr gán được chiến dịch · ${trieu(kpi.expKhac)} tr chưa gán (${pct(kpi.expKhacRate, 0)})`
+            : `${num(kpi.imp)} hiển thị · ${num(kpi.clk)} click`,
+          tone: kpi.expKhacRate > 0.1 ? 'amber' : 'blue' },
+        { k: 'GMV từ quảng cáo', v: trieu(kpi.adsGmv), u: 'triệu',
+          sub: `Shopee gán cho ads · ${pct(kpi.adsShare)} GMV sản phẩm được QC`, tone: 'blue' },
+        { k: 'GMV sản phẩm được QC', v: trieu(kpi.gmv), u: 'triệu',
+          sub: 'toàn bộ GMV của những sản phẩm có chạy ads, kể cả đơn không do ads', tone: 'grey' },
+        { k: 'Doanh thu', v: trieu(kpi.rev), u: 'triệu',
+          sub: `GMV − huỷ − hoàn − giảm giá · chất lượng đơn ${pct(kpi.netRate)}`, tone: 'grey' },
+      ],
+    },
+    {
+      g: 'Phễu — trên phần chi phí gán được chiến dịch',
+      items: [
+        { k: 'Lượt xem', v: num(kpi.imp), u: 'hiển thị',
+          sub: 'số lần quảng cáo xuất hiện trước khách', tone: 'grey' },
+        { k: 'Lượt click', v: num(kpi.clk), u: 'click',
+          sub: `${num(kpi.adsOrd)} đơn phát sinh · ${num(Math.round(kpi.ordNet))} đơn thành công`, tone: 'grey' },
+        { k: 'CTR', v: pct(kpi.ctr, 2), u: 'click ÷ lượt xem',
+          sub: kpi.ctr < 0.015 ? 'dưới 1,5% — ảnh bìa/tiêu đề/giá chưa đủ hút' : 'từ 1,5% trở lên là ổn',
+          tone: kpi.ctr < 0.015 ? 'bad' : 'good' },
+        { k: 'CPC', v: num(kpi.cpc), u: 'đồng/click',
+          sub: 'giá phải trả cho mỗi lần khách bấm vào', tone: 'grey' },
+        { k: 'CR', v: pct(kpi.cr, 2), u: 'đơn ÷ click',
+          sub: kpi.cr < 0.005 ? 'dưới 0,5% — trang sản phẩm hoặc giá cuối làm khách rời' : 'từ 0,5% trở lên là ổn',
+          tone: kpi.cr < 0.005 ? 'bad' : 'good' },
+        { k: 'Chi phí / đơn', v: trieu(kpi.cpo, 2), u: 'triệu/đơn ads',
+          sub: 'tiền quảng cáo bỏ ra để có một đơn', tone: 'grey' },
+      ],
+    },
+    {
+      g: 'Hiệu quả tiền — trên tổng chi phí toàn shop',
+      items: [
+        { k: 'ROAS Shopee', v: fmtRoas(kpi.roasS), u: 'trên GMV',
+          sub: 'số Shopee báo — tính cả đơn bị huỷ', tone: 'grey' },
+        { k: 'ROAS thật', v: fmtRoas(kpi.roasR), u: 'trên doanh thu',
+          sub: `sau khi trừ huỷ/hoàn/giảm giá (${pct(kpi.netRate)})`,
+          tone: kpi.beRoas && kpi.roasR >= kpi.beRoas ? 'good' : 'bad' },
+        { k: 'ROAS hoà vốn', v: fmtBe(kpi.beRoas), u: 'ngưỡng phải vượt',
+          sub: `GM ${pct(kpi.gm)} − phí sàn ${pct(kpi.feeRate)}`, tone: 'amber' },
+        { k: 'ACOS', v: pct(kpi.acos, 1), u: 'ads ÷ GMV từ ads',
+          sub: 'nghịch đảo của ROAS Shopee — càng thấp càng tốt', tone: 'grey' },
+        { k: 'TACOS', v: pct(kpi.tacos, 1), u: 'toàn bộ ads ÷ doanh thu',
+          sub: 'ads chiếm bao nhiêu phần doanh thu thật', tone: kpi.tacos > 0.15 ? 'bad' : 'grey' },
+        { k: kpi.ln >= 0 ? 'LN sau ads' : 'Lỗ sau ads', v: trieu(Math.abs(kpi.ln)), u: 'triệu',
+          sub: 'doanh thu − giá vốn − phí sàn − toàn bộ ads',
+          tone: kpi.ln >= 0 ? 'good' : 'bad' },
+      ],
+    },
   ]
 
   /* Phễu: Lượt xem → Lượt click → Lượt mua → Đơn thành công,
@@ -542,17 +683,23 @@ export default function Marketing({ filters, setFilters }) {
         <p>{verdict.t}</p>
       </div>
 
-      <div className="mk-kpis">
-        {KPI.map(x => (
-          <div key={x.k} className={`mk-kpi ${x.tone}`}>
-            <span className="k">{x.k}</span>
-            <strong>{x.v}<em>{x.u}</em></strong>
-            <span className="sub">{x.sub}</span>
+      {KPI_GROUPS.map(grp => (
+        <div key={grp.g} className="mk-kpigrp">
+          <div className="mk-kpigrp-h">{grp.g}</div>
+          <div className={`mk-kpis n${grp.items.length}`}>
+            {grp.items.map(x => (
+              <div key={x.k} className={`mk-kpi ${x.tone}`}>
+                <span className="k">{x.k}</span>
+                <strong>{x.v}<em>{x.u}</em></strong>
+                <span className="sub">{x.sub}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
 
-      {tab === 'overview' && <OverviewTab kpi={kpi} funnel={funnel} series={series} />}
+      {tab === 'overview' && <OverviewTab kpi={kpi} funnel={funnel} series={series}
+        tseries={d.tseries} gran={gran} setGran={setGran} />}
       {tab === 'campaign' && <CampaignTab rows={camps} beAll={kpi.beRoas} />}
       {tab === 'item' && <ItemTab rows={byItem} drill={drill} />}
       {tab === 'nganh' && <NganhTab rows={byNganh} beAll={kpi.beRoas} />}
@@ -580,7 +727,49 @@ const LEG = {
   wrapperStyle: { fontSize: 10.5, color: '#6E739B', paddingLeft: 26, paddingBottom: 2, lineHeight: '15px' },
 }
 
-function OverviewTab({ kpi, funnel, series }) {
+const GRAN = [
+  ['hour', 'Giờ', 'gộp 24 giờ của cả kỳ · số toàn shop'],
+  ['day', 'Ngày', 'từng ngày · số toàn shop'],
+  ['week', 'Tuần', 'tuần ISO · số toàn shop'],
+  ['month', 'Tháng', 'theo tháng · có áp bộ lọc ngành/SKU'],
+  ['year', 'Năm', 'theo năm · có áp bộ lọc ngành/SKU'],
+]
+const GRAN_MAP = Object.fromEntries(GRAN.map(g => [g[0], g]))
+/* Ba mức dưới đây chỉ có ở cấp toàn shop -> bộ lọc chiều không áp dụng */
+const SHOP_ONLY = new Set(['hour', 'day', 'week'])
+
+function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
+  const ts = (tseries && tseries[gran]) || series
+  const cover = (tseries && tseries._cover) || { hourDays: 0, winDays: 0 }
+  const shopOnly = SHOP_ONLY.has(gran)
+  const granBar = (
+    <div className="mk-gran">
+      <b>Mức thời gian</b>
+      <div className="mk-granbtns">
+        {GRAN.map(([id, lb]) => (
+          <button key={id} className={gran === id ? 'on' : ''} onClick={() => setGran(id)}>{lb}</button>
+        ))}
+      </div>
+      <span className="hint">{GRAN_MAP[gran][2]} — áp cho 4 biểu đồ phía quảng cáo bên dưới</span>
+    </div>
+  )
+  const shopNote = shopOnly ? (
+    <div className="mk-clip">
+      Mức <b>{GRAN_MAP[gran][1]}</b> là số <b>toàn shop</b>: API quảng cáo của Shopee chỉ trả
+      theo ngày và theo giờ ở cấp shop, không tách được theo chiến dịch hay sản phẩm — nên
+      <b> bộ lọc ngành hàng / loại hình / tìm kiếm không áp dụng</b> ở mức này, và cũng không
+      tính được ROAS thật, chất lượng đơn hay lợi nhuận (những thứ cần ghép doanh thu theo SKU).
+      Muốn xem theo đúng phần đã lọc thì chọn <b>Tháng</b> hoặc <b>Năm</b>.
+      {gran === 'hour' && (
+        <>
+          {' '}Mức Giờ gộp 24 giờ để trả lời “giờ nào trong ngày đắt”, không phải chuỗi thời
+          gian liên tục — và nó gộp từ <b>{cover.hourDays}/{cover.winDays} ngày</b> của kỳ,
+          vì job chỉ kéo lại 10 ngày gần nhất mỗi lượt nên các ngày cũ chưa có số theo giờ.
+          {cover.hourDays < cover.winDays * 0.8 && ' Độ phủ còn thấp, đọc nhịp giờ này chỉ nên coi là hướng chứ chưa kết luận.'}
+        </>
+      )}
+    </div>
+  ) : null
   const A = { grid: C.grid, axis: C.axis }
   const ax = { tick: { fontSize: 10, fill: C.axis }, axisLine: false, tickLine: false }
 
@@ -600,14 +789,16 @@ function OverviewTab({ kpi, funnel, series }) {
           </p>
         </section>
 
+        {granBar}
+        {shopNote}
         <section className="m2-panel">
           <div className="m2-head">
-            <h3>Chi phí quảng cáo &amp; ROAS theo tháng</h3>
+            <h3>Chi phí quảng cáo &amp; ROAS theo {GRAN_MAP[gran][1].toLowerCase()}</h3>
             <span>Cột = chi phí (triệu) · đường cam = ROAS thật · đường xám = ROAS Shopee ·
               đường đỏ gạch = điểm hoà vốn (chặn trần {BE_CAP})</span>
           </div>
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={series} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <ComposedChart data={ts} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid stroke={A.grid} vertical={false} />
               <XAxis dataKey="label" {...ax} />
               <YAxis yAxisId="l" {...ax} />
@@ -622,16 +813,29 @@ function OverviewTab({ kpi, funnel, series }) {
                 ['LN sau ads', `${num(p.ln, 1)} tr`, p.ln < 0 ? 'bad' : 'good'],
               ]} />} />
               <Legend {...LEG} height={42} />
-              <Bar yAxisId="l" dataKey="ads" name="Chi phí chiến dịch SP · tr (trái)" stackId="a" fill={C.ads} barSize={26} />
-              <Bar yAxisId="l" dataKey="adsKhac" name="Chi phí ads khác · tr (trái)" stackId="a" fill={C.adsOther} barSize={26} radius={[3, 3, 0, 0]} />
+              <Bar yAxisId="l" dataKey="ads"
+                name={shopOnly ? 'Chi phí quảng cáo · tr (trái)' : 'Chi phí chiến dịch SP · tr (trái)'}
+                stackId="a" fill={C.ads} barSize={shopOnly ? 14 : 26}
+                radius={shopOnly ? [3, 3, 0, 0] : undefined} />
+              {!shopOnly && (
+                <Bar yAxisId="l" dataKey="adsKhac" name="Chi phí ads khác · tr (trái)" stackId="a" fill={C.adsOther} barSize={26} radius={[3, 3, 0, 0]} />
+              )}
               <Line yAxisId="r" {...SOFT} dataKey="roasS" name="ROAS Shopee (phải)" stroke={C.roasS} strokeWidth={1.8} strokeDasharray="5 4" dot={false} activeDot={actOf(C.roasS)} />
-              <Line yAxisId="r" {...SOFT} dataKey="roasR" name="ROAS thật (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, series.length)} activeDot={actOf(C.roasR)} />
-              <Line yAxisId="r" {...SOFT} dataKey="beRoasPlot" name="ROAS hoà vốn (phải)" stroke={C.be} strokeWidth={1.5} strokeDasharray="3 4" dot={false} />
+              {/* ROAS thật và điểm hoà vốn cần doanh thu theo SKU — cấp toàn shop
+                  không có, nên ẩn cả đường lẫn nhãn thay vì vẽ đường rỗng. */}
+              {!shopOnly && (
+                <Line yAxisId="r" {...SOFT} dataKey="roasR" name="ROAS thật (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, ts.length)} activeDot={actOf(C.roasR)} />
+              )}
+              {!shopOnly && (
+                <Line yAxisId="r" {...SOFT} dataKey="beRoasPlot" name="ROAS hoà vốn (phải)" stroke={C.be} strokeWidth={1.5} strokeDasharray="3 4" dot={false} />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
           <p className="mk-note">
-            Khoảng cách giữa đường xám và đường cam chính là phần <b>ROAS ảo</b> do đơn huỷ.
-            Đường cam nằm dưới đường đỏ tháng nào thì tháng đó quảng cáo lỗ.
+            {shopOnly
+              ? 'Mức này chỉ có ROAS Shopee — thứ tính cả đơn bị huỷ. Muốn thấy ROAS thật và điểm hoà vốn thì chuyển sang mức Tháng.'
+              : <>Khoảng cách giữa đường xám và đường cam chính là phần <b>ROAS ảo</b> do đơn huỷ.
+                Đường cam nằm dưới đường đỏ tháng nào thì tháng đó quảng cáo lỗ.</>}
           </p>
         </section>
       </div>
@@ -645,7 +849,7 @@ function OverviewTab({ kpi, funnel, series }) {
               cạnh tranh đấu giá đang đắt lên</span>
           </div>
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={series} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <ComposedChart data={ts} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid stroke={A.grid} vertical={false} />
               <XAxis dataKey="label" {...ax} />
               <YAxis yAxisId="l" {...ax} unit="k" />
@@ -658,7 +862,7 @@ function OverviewTab({ kpi, funnel, series }) {
               ]} />} />
               <Legend {...LEG} />
               <Bar yAxisId="l" dataKey="cpcK" name="CPC · nghìn đ/click (trái)" fill={C.ads} barSize={24} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="r" {...SOFT} dataKey="ctr" name="Tỷ lệ click CTR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, series.length)} activeDot={actOf(C.roasR)} />
+              <Line yAxisId="r" {...SOFT} dataKey="ctr" name="Tỷ lệ click CTR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, ts.length)} activeDot={actOf(C.roasR)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>
@@ -671,7 +875,7 @@ function OverviewTab({ kpi, funnel, series }) {
               nghĩa là phải trả đắt hơn cho cùng một đơn</span>
           </div>
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={series} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <ComposedChart data={ts} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid stroke={A.grid} vertical={false} />
               <XAxis dataKey="label" {...ax} />
               <YAxis yAxisId="l" {...ax} />
@@ -684,7 +888,7 @@ function OverviewTab({ kpi, funnel, series }) {
               ]} />} />
               <Legend {...LEG} />
               <Bar yAxisId="l" dataKey="cpo" name="Chi phí/đơn · tr (trái)" fill={C.blue2} barSize={24} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="r" {...SOFT} dataKey="cr" name="Tỷ lệ chuyển đổi CR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, series.length)} activeDot={actOf(C.roasR)} />
+              <Line yAxisId="r" {...SOFT} dataKey="cr" name="Tỷ lệ chuyển đổi CR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, ts.length)} activeDot={actOf(C.roasR)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>
@@ -699,7 +903,7 @@ function OverviewTab({ kpi, funnel, series }) {
               hoặc giá thầu bị cắt</span>
           </div>
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={series} margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
+            <ComposedChart data={ts} margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
               <defs>
                 <linearGradient id="gImp" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#353E99" stopOpacity={0.34} />
@@ -719,7 +923,7 @@ function OverviewTab({ kpi, funnel, series }) {
               <Area yAxisId="l" {...SOFT} dataKey="imp" name="Lượt xem (trái)"
                 stroke="#353E99" strokeWidth={2.2} fill="url(#gImp)" activeDot={actOf('#353E99')} />
               <Line yAxisId="r" {...SOFT} dataKey="clk" name="Lượt click (phải)"
-                stroke={C.amber} strokeWidth={2.6} dot={dotOf(C.amber, series.length)} activeDot={actOf(C.amber)} />
+                stroke={C.amber} strokeWidth={2.6} dot={dotOf(C.amber, ts.length)} activeDot={actOf(C.amber)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>

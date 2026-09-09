@@ -116,7 +116,11 @@ def main():
         ids = etl_ads.campaign_ids()
         n0 = etl_ads.do_setting(conn, ids)          # cấu hình + item_id, cần cho Marketing Analysis
         n2 = etl_ads.do_campaign(conn, d35, now.date(), ids)
-        return f'{n1} ngày shop, {n0} cấu hình CD, {n2} dòng chiến dịch'
+        # Theo giờ: mỗi ngày là một lần gọi API nên chỉ kéo lại 10 ngày gần nhất.
+        # Ngày hôm nay chỉ có các giờ đã trôi qua -> phải kéo lại nhiều lượt mới đủ.
+        # Backfill cả giai đoạn làm riêng một lần bằng etl_ads.do_hourly(d0, d1).
+        n3 = etl_ads.do_hourly(conn, (now - dt.timedelta(days=9)).date(), now.date())
+        return f'{n1} ngày shop, {n0} cấu hình CD, {n2} dòng chiến dịch, {n3} dòng giờ'
     ok.append(step('quảng cáo', ads))
 
     ok.append(step('xuất JSON cho app', lambda: export_app_data.main() or 'xong',
