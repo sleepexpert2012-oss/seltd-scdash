@@ -207,6 +207,11 @@ const fmtDay = s => {
    NOW - pulled. Tách làm 2 phần để biết lỗi ở đâu:
      lagAtExport = EXPORT_AT - pulled  -> job không kéo được (ETL đứng)
      PAGE_AGE_H  = NOW - EXPORT_AT     -> job kéo rồi nhưng chưa deploy lại */
+/* Bản local (vite dev) và bản đã deploy cũ đi vì hai lý do KHÁC nhau, nên lời
+   giải thích phải khác nhau: bản deploy cũ = lượt Actions lỗi; bản local cũ =
+   Actions chỉ cập nhật đám mây và nhánh gh-pages, không ghi về máy này. */
+const IS_LOCAL = typeof location !== 'undefined'
+  && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
 const EXPORT_AT = parse(infra.exportedAt) || new Date()
 const NOW = new Date()
 const PAGE_AGE_H = Math.max(0, (NOW - EXPORT_AT) / 36e5)
@@ -225,8 +230,13 @@ const ago = h => {
   return `${Math.round(h / 24)} ngày`
 }
 
-/* Lịch chạy 3 khung giờ -> quá 9 tiếng không chạy là đã trượt ít nhất 1 lượt */
-const SLA_H = 9
+/* Ngưỡng "đã trượt một lượt", đo từ thực tế chứ không suy từ lịch.
+   Lịch là 06:00 / 12:00 / 20:00 nhưng cron của GitHub Actions là best-effort:
+   đo 4 lượt ngày 08-09/09/2026 thì lượt nào cũng trễ 1,9-4,4 giờ, nên khoảng
+   cách thực giữa hai lượt là 7,8-8,4 giờ. Để ngưỡng 9 giờ thì chỉ dư 0,6 giờ —
+   một lượt trễ thêm chút là báo "Chậm nhịp" oan. Đặt 11 giờ vẫn bắt được lượt
+   bị bỏ hẳn (bỏ một lượt là khoảng cách nhảy lên ~16 giờ). */
+const SLA_H = 11
 const stateOf = h => (h == null ? 'unknown' : h <= SLA_H ? 'ok' : h <= 36 ? 'late' : 'down')
 const STATE = {
   ok: { label: 'Bình thường', tone: 'good' },
@@ -317,13 +327,23 @@ export default function Infra() {
       {PAGE_AGE_H > SLA_H && (
         <div className={`inf-stale t-${stateOf(PAGE_AGE_H) === 'down' ? 'bad' : 'warn'}`}>
           <b>⚠ Trang này đang xem số cũ — kết xuất cách đây {ago(PAGE_AGE_H)}</b>
-          <p>
-            Bình thường GitHub Actions kéo dữ liệu rồi deploy lại ngay, nên trang không
-            thể cũ quá {SLA_H} giờ. Cũ hơn thế nghĩa là <b>lượt chạy đã lỗi</b> — mở tab
-            Actions của repo để xem lượt đỏ, hoặc bấm “Run workflow” để chạy bù.
-            Dòng phụ dưới mỗi bảng cho biết lỗi ở đâu: “job trễ … ngay tại lúc kết xuất”
-            là Shopee/ETL không kéo được; còn nếu job vẫn kịp thì lỗi ở bước build/deploy.
-          </p>
+          {IS_LOCAL ? (
+            <p>
+              Đang xem <b>bản chạy tại máy này</b> (localhost). GitHub Actions chỉ cập nhật
+              Supabase và nhánh <code>gh-pages</code> — nó <b>không ghi dữ liệu về máy này</b>,
+              nên file trong <code>src/data/</code> vẫn là của lần kết xuất tay gần nhất.
+              Muốn đồng bộ thì chạy <code>python3 scripts/shopee/export_app_data.py</code>{' '}
+              (kéo từ Supabase, không cần gọi Shopee). Bản trên link công khai vẫn mới.
+            </p>
+          ) : (
+            <p>
+              Bình thường GitHub Actions kéo dữ liệu rồi deploy lại ngay, nên trang không
+              thể cũ quá {SLA_H} giờ. Cũ hơn thế nghĩa là <b>lượt chạy đã lỗi</b> — mở tab
+              Actions của repo để xem lượt đỏ, hoặc bấm “Run workflow” để chạy bù.
+              Dòng phụ dưới mỗi bảng cho biết lỗi ở đâu: “job trễ … ngay tại lúc kết xuất”
+              là Shopee/ETL không kéo được; còn nếu job vẫn kịp thì lỗi ở bước build/deploy.
+            </p>
+          )}
         </div>
       )}
 

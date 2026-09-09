@@ -100,3 +100,41 @@ chứ không phải audit tay lần nữa. Badge trên tab đếm số phép ki�
   selector thì báo "không lỗi" một cách sai.
 - Vòng quét async chạy quá lâu thì công cụ hết thời gian chờ nhưng **vòng lặp vẫn
   chạy trong trang** và làm mọi lệnh sau đó nghẽn → phải reload để dừng.
+
+## Bổ sung 09/09/2026 — kiểm bản local có mới nhất chưa
+Anh Louis hỏi bản local đã mới nhất chưa. Ba nơi, ba trạng thái khác nhau:
+
+| Nơi | Trạng thái lúc kiểm (09/09 16:21) |
+|---|---|
+| Code local | mới nhất (git sạch ở `5a3d1d7`) |
+| **Dữ liệu local** | **cũ 29,1 giờ** — kết xuất 08/09 11:15, 2.217 đơn |
+| Supabase | 2.236 đơn |
+| Link công khai | 2.236 đơn — **đã mới** |
+
+Nguyên nhân: GitHub Actions chỉ ghi vào Supabase và nhánh `gh-pages`, **không ghi
+dữ liệu về máy này**. Nên `src/data/*.json` ở local đứng ở lần kết xuất tay gần
+nhất. Đồng bộ bằng `python3 scripts/shopee/export_app_data.py` (kéo từ Supabase,
+không cần gọi Shopee) — sau khi chạy: 2.240 đơn, cảnh báo tắt.
+
+Bộ báo động sửa hôm 08/09 hoạt động đúng trong tình huống thật: hiện
+"Chậm nhịp · kết xuất cách đây 29,1 giờ". Nhưng câu giải thích lúc đó chỉ đúng cho
+bản đã deploy ("lượt chạy đã lỗi"), sai với bản local — đã tách hai nhánh theo
+`location.hostname`.
+
+### Cron của GitHub Actions trễ có hệ thống
+Đo 4 lượt: **lượt nào cũng trễ 1,9-4,4 giờ** so với lịch đặt.
+
+| Đặt lịch | Chạy thực | Trễ |
+|---|---|---|
+| 12:00 | 08/09 16:18 | 4,3 h |
+| 20:00 | 09/09 00:08 | 4,1 h |
+| 06:00 | 09/09 07:55 | 1,9 h |
+| 12:00 | 09/09 16:21 | 4,4 h |
+
+Đây là đặc tính của `schedule` trên Actions (best-effort, xếp hàng theo tải), không
+sửa được bằng code. Hệ quả: khoảng cách thực giữa hai lượt là 7,8-8,4 giờ, mà ngưỡng
+cảnh báo đang là 9 giờ — chỉ dư 0,6 giờ. **Đã nâng `SLA_H` 9 -> 11 giờ**, vẫn bắt
+được lượt bị bỏ hẳn (bỏ một lượt thì khoảng cách nhảy lên ~16 giờ).
+
+Nếu cần dữ liệu đúng giờ sáng thì phải đặt cron sớm hơn để bù độ trễ, hoặc chuyển
+job sang nơi chạy đúng giờ — không phải Actions.
