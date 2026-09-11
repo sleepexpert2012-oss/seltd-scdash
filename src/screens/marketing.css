@@ -267,25 +267,44 @@
   .mk-kpis.n6 { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Bộ chọn mức thời gian cho các biểu đồ phía quảng cáo */
-.mk-gran {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  border: 1px solid var(--line); border-radius: var(--r-control);
-  background: var(--surface); padding: 8px 12px;
-}
-.mk-gran > b { font-size: 10px; font-weight: 800; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--muted); }
-.mk-granbtns { display: flex; gap: 3px; background: var(--surface-soft);
-  border: 1px solid var(--line); border-radius: var(--r-pill); padding: 2px; }
-.mk-granbtns button {
-  height: 24px; padding: 0 12px; border: 0; border-radius: var(--r-pill);
-  background: transparent; color: var(--ink-2);
-  font-size: 11px; font-weight: 650; cursor: pointer;
-}
-.mk-granbtns button:hover { background: #fff; color: var(--ink); }
-.mk-granbtns button.on { background: var(--navy); color: #fff; }
-.mk-gran .hint { font-size: 10.5px; color: var(--muted); }
 
-/* Bộ chọn mức thời gian và dải cảnh báo nằm trong lưới 2 cột của tab Tổng quan
-   -> cho chiếm hết chiều ngang, không lọt một ô */
-.mk-row2 > .mk-gran, .mk-row2 > .mk-clip { grid-column: 1 / -1; }
+
+/* ---- Đầu biểu đồ: tiêu đề trái, bộ chọn mức thời gian góc phải ---- */
+.mk-page .m2-panel > .m2-head.mk-head2 {
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  column-gap: 12px; row-gap: 4px;
+}
+.mk-page .m2-panel > .m2-head.mk-head2 > h3 { margin: 0; min-width: 0; }
+.mk-page .m2-panel > .m2-head.mk-head2 > .mk-head2-sub {
+  grid-column: 1 / -1; display: block;
+  font-size: 10.5px; line-height: 1.5; color: var(--muted);
+}
+.mk-head2 > i { display: none; }
+.mk-head2 .mk-shopnote {
+  grid-column: 1 / -1; margin: 0;
+  font-size: 10px; line-height: 1.45; color: #9A5B06; cursor: help;
+}
+.mk-head2 .mk-shopnote b { color: #7A4705; }
+
+.mk-granpick {
+  display: flex; gap: 2px; flex: 0 0 auto; align-self: start;
+  background: var(--surface-soft); border: 1px solid var(--line);
+  border-radius: var(--r-pill); padding: 2px;
+}
+.mk-granpick button {
+  height: 20px; padding: 0 8px; border: 0; border-radius: var(--r-pill);
+  background: transparent; color: var(--ink-3);
+  font-size: 10px; font-weight: 650; cursor: pointer; white-space: nowrap;
+}
+.mk-granpick button:hover { background: #fff; color: var(--ink); }
+.mk-granpick button.on { background: var(--navy); color: #fff; }
+
+/* ---- Lưới biểu đồ: hai ô cùng hàng bằng chiều cao, ghi chú tụt xuống đáy ----
+   Trước đây panel cao thấp khác nhau nên đáy so le, nhìn lộn xộn. */
+.mk-page .mk-row2 { align-items: stretch; }
+.mk-page .mk-row2 > .m2-panel { display: flex; flex-direction: column; }
+.mk-page .mk-row2 > .m2-panel > .mk-note { margin-top: auto; }
+@media (max-width: 900px) {
+  .mk-page .m2-panel > .m2-head.mk-head2 { grid-template-columns: 1fr; }
+  .mk-granpick { justify-self: start; }
+}

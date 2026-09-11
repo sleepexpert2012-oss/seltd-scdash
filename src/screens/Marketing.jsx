@@ -180,7 +180,6 @@ const toDot = m => (m || '').replace('-', '.')
 
 export default function Marketing({ filters, setFilters }) {
   const [tab, setTab] = useState('overview')
-  const [gran, setGran] = useState('month')   // mức thời gian của biểu đồ ads
   const [openNg, setOpenNg] = useState(() => new Set(DIAG.map(g => g.id)))
   const drill = useDrill()
 
@@ -426,6 +425,7 @@ export default function Marketing({ filters, setFilters }) {
       ord: r.ads_order || 0,
       ctr: r.impression > 0 ? r.clicks / r.impression : null,
       cpc: r.clicks > 0 ? r.expense / r.clicks : null,
+      cpcK: r.clicks > 0 ? r.expense / r.clicks / 1e3 : null,   // biểu đồ vẽ theo nghìn đồng
       cr: r.clicks > 0 ? r.ads_order / r.clicks : null,
       cpo: r.ads_order > 0 ? r.expense / r.ads_order / 1e6 : null,
       roasS: r.expense > 0 ? r.ads_gmv / r.expense : null,
@@ -475,6 +475,7 @@ export default function Marketing({ filters, setFilters }) {
         ...t,
         ctr: t.imp > 0 ? t.clk / t.imp : null,
         cpc: t.clk > 0 ? t._exp / t.clk : null,
+        cpcK: t.clk > 0 ? t._exp / t.clk / 1e3 : null,
         cr: t.clk > 0 ? t.ord / t.clk : null,
         cpo: t.ord > 0 ? t._exp / t.ord / 1e6 : null,
         roasS: t._exp > 0 ? t._gmv / t._exp : null,
@@ -699,7 +700,7 @@ export default function Marketing({ filters, setFilters }) {
       ))}
 
       {tab === 'overview' && <OverviewTab kpi={kpi} funnel={funnel} series={series}
-        tseries={d.tseries} gran={gran} setGran={setGran} />}
+        tseries={d.tseries} />}
       {tab === 'campaign' && <CampaignTab rows={camps} beAll={kpi.beRoas} />}
       {tab === 'item' && <ItemTab rows={byItem} drill={drill} />}
       {tab === 'nganh' && <NganhTab rows={byNganh} beAll={kpi.beRoas} />}
@@ -738,38 +739,55 @@ const GRAN_MAP = Object.fromEntries(GRAN.map(g => [g[0], g]))
 /* Ba mức dưới đây chỉ có ở cấp toàn shop -> bộ lọc chiều không áp dụng */
 const SHOP_ONLY = new Set(['hour', 'day', 'week'])
 
-function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
-  const ts = (tseries && tseries[gran]) || series
-  const cover = (tseries && tseries._cover) || { hourDays: 0, winDays: 0 }
-  const shopOnly = SHOP_ONLY.has(gran)
-  const granBar = (
-    <div className="mk-gran">
-      <b>Mức thời gian</b>
-      <div className="mk-granbtns">
-        {GRAN.map(([id, lb]) => (
-          <button key={id} className={gran === id ? 'on' : ''} onClick={() => setGran(id)}>{lb}</button>
-        ))}
-      </div>
-      <span className="hint">{GRAN_MAP[gran][2]} — áp cho 4 biểu đồ phía quảng cáo bên dưới</span>
+/* Bộ chọn mức thời gian đặt ở GÓC PHẢI TRÊN của từng biểu đồ, mỗi biểu đồ chọn
+   độc lập — để so được ví dụ chi phí theo ngày với CTR theo tháng. */
+function GranPicker({ value, onChange }) {
+  return (
+    <div className="mk-granpick" role="group" aria-label="Mức thời gian">
+      {GRAN.map(([id, lb]) => (
+        <button key={id} type="button" className={value === id ? 'on' : ''}
+          title={GRAN_MAP[id][2]} onClick={() => onChange(id)}>{lb}</button>
+      ))}
     </div>
   )
-  const shopNote = shopOnly ? (
-    <div className="mk-clip">
-      Mức <b>{GRAN_MAP[gran][1]}</b> là số <b>toàn shop</b>: API quảng cáo của Shopee chỉ trả
-      theo ngày và theo giờ ở cấp shop, không tách được theo chiến dịch hay sản phẩm — nên
-      <b> bộ lọc ngành hàng / loại hình / tìm kiếm không áp dụng</b> ở mức này, và cũng không
-      tính được ROAS thật, chất lượng đơn hay lợi nhuận (những thứ cần ghép doanh thu theo SKU).
-      Muốn xem theo đúng phần đã lọc thì chọn <b>Tháng</b> hoặc <b>Năm</b>.
-      {gran === 'hour' && (
-        <>
-          {' '}Mức Giờ gộp 24 giờ để trả lời “giờ nào trong ngày đắt”, không phải chuỗi thời
-          gian liên tục — và nó gộp từ <b>{cover.hourDays}/{cover.winDays} ngày</b> của kỳ,
-          vì job chỉ kéo lại 10 ngày gần nhất mỗi lượt nên các ngày cũ chưa có số theo giờ.
-          {cover.hourDays < cover.winDays * 0.8 && ' Độ phủ còn thấp, đọc nhịp giờ này chỉ nên coi là hướng chứ chưa kết luận.'}
-        </>
+}
+
+/* Đầu biểu đồ: tiêu đề + mô tả bên trái, bộ chọn bên phải, và khi đang ở mức
+   toàn shop thì một dòng cảnh báo NGẮN ngay dưới — không dùng dải to chắn ngang
+   vì nó cắt lưới 2 cột và sinh ô trống. */
+function ChartHead({ title, sub, gran, onGran, cover }) {
+  const shopOnly = SHOP_ONLY.has(gran)
+  return (
+    <div className="m2-head mk-head2">
+      {/* Tiêu đề và bộ chọn cùng một hàng; MÔ TẢ xuống hàng dưới và trải hết
+          chiều ngang — để chung hàng thì mô tả bị ép thành cột hẹp 5-6 dòng,
+          đẩy biểu đồ tụt xuống và panel cao thấp so le. */}
+      <h3>{title}</h3>
+      {onGran ? <GranPicker value={gran} onChange={onGran} /> : <i />}
+      <span className="mk-head2-sub">{sub}</span>
+      {shopOnly && (
+        <p className="mk-shopnote" title={
+          'API quảng cáo của Shopee chỉ trả theo ngày và theo giờ ở cấp shop, '
+          + 'không tách được theo chiến dịch hay sản phẩm. Vì vậy ở mức Giờ/Ngày/Tuần '
+          + 'bộ lọc ngành hàng, loại hình và tìm kiếm không áp dụng, và không tính '
+          + 'được ROAS thật, chất lượng đơn hay lợi nhuận. Chọn Tháng hoặc Năm để '
+          + 'xem theo đúng phần đã lọc.'}>
+          Số <b>toàn shop</b> — bộ lọc ngành/SKU không áp dụng ở mức này
+          {gran === 'hour' && cover
+            ? ` · gộp 24 giờ từ ${cover.hourDays}/${cover.winDays} ngày của kỳ`
+            : ''}
+        </p>
       )}
     </div>
-  ) : null
+  )
+}
+
+function OverviewTab({ kpi, funnel, series, tseries }) {
+  /* Mỗi biểu đồ giữ mức thời gian riêng */
+  const [gr, setGr] = useState({ roas: 'month', ctr: 'month', cr: 'month', traf: 'month' })
+  const setG = k => v => setGr(o => ({ ...o, [k]: v }))
+  const tsOf = k => (tseries && tseries[gr[k]]) || series
+  const cover = (tseries && tseries._cover) || { hourDays: 0, winDays: 0 }
   const A = { grid: C.grid, axis: C.axis }
   const ax = { tick: { fontSize: 10, fill: C.axis }, axisLine: false, tickLine: false }
 
@@ -789,16 +807,13 @@ function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
           </p>
         </section>
 
-        {granBar}
-        {shopNote}
         <section className="m2-panel">
-          <div className="m2-head">
-            <h3>Chi phí quảng cáo &amp; ROAS theo {GRAN_MAP[gran][1].toLowerCase()}</h3>
-            <span>Cột = chi phí (triệu) · đường cam = ROAS thật · đường xám = ROAS Shopee ·
-              đường đỏ gạch = điểm hoà vốn (chặn trần {BE_CAP})</span>
-          </div>
+          <ChartHead
+            title={`Chi phí quảng cáo & ROAS theo ${GRAN_MAP[gr.roas][1].toLowerCase()}`}
+            sub={`Cột = chi phí (triệu) · đường xám = ROAS Shopee${SHOP_ONLY.has(gr.roas) ? '' : ' · đường cam = ROAS thật · đường đỏ gạch = điểm hoà vốn (chặn trần ' + BE_CAP + ')'}`}
+            gran={gr.roas} onGran={setG('roas')} cover={cover} />
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={ts} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <ComposedChart data={tsOf('roas')} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid stroke={A.grid} vertical={false} />
               <XAxis dataKey="label" {...ax} />
               <YAxis yAxisId="l" {...ax} />
@@ -814,25 +829,25 @@ function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
               ]} />} />
               <Legend {...LEG} height={42} />
               <Bar yAxisId="l" dataKey="ads"
-                name={shopOnly ? 'Chi phí quảng cáo · tr (trái)' : 'Chi phí chiến dịch SP · tr (trái)'}
-                stackId="a" fill={C.ads} barSize={shopOnly ? 14 : 26}
-                radius={shopOnly ? [3, 3, 0, 0] : undefined} />
-              {!shopOnly && (
+                name={SHOP_ONLY.has(gr.roas) ? 'Chi phí quảng cáo · tr (trái)' : 'Chi phí chiến dịch SP · tr (trái)'}
+                stackId="a" fill={C.ads} barSize={SHOP_ONLY.has(gr.roas) ? 14 : 26}
+                radius={SHOP_ONLY.has(gr.roas) ? [3, 3, 0, 0] : undefined} />
+              {!SHOP_ONLY.has(gr.roas) && (
                 <Bar yAxisId="l" dataKey="adsKhac" name="Chi phí ads khác · tr (trái)" stackId="a" fill={C.adsOther} barSize={26} radius={[3, 3, 0, 0]} />
               )}
               <Line yAxisId="r" {...SOFT} dataKey="roasS" name="ROAS Shopee (phải)" stroke={C.roasS} strokeWidth={1.8} strokeDasharray="5 4" dot={false} activeDot={actOf(C.roasS)} />
               {/* ROAS thật và điểm hoà vốn cần doanh thu theo SKU — cấp toàn shop
                   không có, nên ẩn cả đường lẫn nhãn thay vì vẽ đường rỗng. */}
-              {!shopOnly && (
-                <Line yAxisId="r" {...SOFT} dataKey="roasR" name="ROAS thật (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, ts.length)} activeDot={actOf(C.roasR)} />
+              {!SHOP_ONLY.has(gr.roas) && (
+                <Line yAxisId="r" {...SOFT} dataKey="roasR" name="ROAS thật (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, tsOf('roas').length)} activeDot={actOf(C.roasR)} />
               )}
-              {!shopOnly && (
+              {!SHOP_ONLY.has(gr.roas) && (
                 <Line yAxisId="r" {...SOFT} dataKey="beRoasPlot" name="ROAS hoà vốn (phải)" stroke={C.be} strokeWidth={1.5} strokeDasharray="3 4" dot={false} />
               )}
             </ComposedChart>
           </ResponsiveContainer>
           <p className="mk-note">
-            {shopOnly
+            {SHOP_ONLY.has(gr.roas)
               ? 'Mức này chỉ có ROAS Shopee — thứ tính cả đơn bị huỷ. Muốn thấy ROAS thật và điểm hoà vốn thì chuyển sang mức Tháng.'
               : <>Khoảng cách giữa đường xám và đường cam chính là phần <b>ROAS ảo</b> do đơn huỷ.
                 Đường cam nằm dưới đường đỏ tháng nào thì tháng đó quảng cáo lỗ.</>}
@@ -843,13 +858,13 @@ function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
       <div className="mk-row2">
         {/* 3. CTR & CPC — chất lượng hiển thị và giá mỗi click */}
         <section className="m2-panel">
-          <div className="m2-head">
-            <h3>Tỷ lệ click (CTR) &amp; giá mỗi click (CPC)</h3>
-            <span>Cột = CPC (nghìn đồng/click) · đường = CTR. CTR tăng mà CPC cũng tăng nghĩa là
-              cạnh tranh đấu giá đang đắt lên</span>
-          </div>
+          <ChartHead
+            title={`Tỷ lệ click (CTR) & giá mỗi click (CPC) theo ${GRAN_MAP[gr.ctr][1].toLowerCase()}`}
+            gran={gr.ctr} onGran={setG('ctr')} cover={cover}
+            sub={<>Cột = CPC (nghìn đồng/click) · đường = CTR. CTR tăng mà CPC cũng tăng nghĩa là
+              cạnh tranh đấu giá đang đắt lên</>} />
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={ts} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <ComposedChart data={tsOf('ctr')} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid stroke={A.grid} vertical={false} />
               <XAxis dataKey="label" {...ax} />
               <YAxis yAxisId="l" {...ax} unit="k" />
@@ -862,20 +877,20 @@ function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
               ]} />} />
               <Legend {...LEG} />
               <Bar yAxisId="l" dataKey="cpcK" name="CPC · nghìn đ/click (trái)" fill={C.ads} barSize={24} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="r" {...SOFT} dataKey="ctr" name="Tỷ lệ click CTR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, ts.length)} activeDot={actOf(C.roasR)} />
+              <Line yAxisId="r" {...SOFT} dataKey="ctr" name="Tỷ lệ click CTR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, tsOf('ctr').length)} activeDot={actOf(C.roasR)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>
 
         {/* 4. CR & Chi phí/đơn */}
         <section className="m2-panel">
-          <div className="m2-head">
-            <h3>Tỷ lệ chuyển đổi (CR) &amp; chi phí mỗi đơn</h3>
-            <span>Cột = chi phí/đơn ads (triệu) · đường = CR. Chi phí/đơn tăng trong khi CR đứng
-              nghĩa là phải trả đắt hơn cho cùng một đơn</span>
-          </div>
+          <ChartHead
+            title={`Tỷ lệ chuyển đổi (CR) & chi phí mỗi đơn theo ${GRAN_MAP[gr.cr][1].toLowerCase()}`}
+            gran={gr.cr} onGran={setG('cr')} cover={cover}
+            sub={<>Cột = chi phí/đơn ads (triệu) · đường = CR. Chi phí/đơn tăng trong khi CR đứng
+              nghĩa là phải trả đắt hơn cho cùng một đơn</>} />
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={ts} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <ComposedChart data={tsOf('cr')} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid stroke={A.grid} vertical={false} />
               <XAxis dataKey="label" {...ax} />
               <YAxis yAxisId="l" {...ax} />
@@ -888,7 +903,7 @@ function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
               ]} />} />
               <Legend {...LEG} />
               <Bar yAxisId="l" dataKey="cpo" name="Chi phí/đơn · tr (trái)" fill={C.blue2} barSize={24} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="r" {...SOFT} dataKey="cr" name="Tỷ lệ chuyển đổi CR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, ts.length)} activeDot={actOf(C.roasR)} />
+              <Line yAxisId="r" {...SOFT} dataKey="cr" name="Tỷ lệ chuyển đổi CR (phải)" stroke={C.roasR} strokeWidth={2.6} dot={dotOf(C.roasR, tsOf('cr').length)} activeDot={actOf(C.roasR)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>
@@ -897,13 +912,13 @@ function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
       <div className="mk-row2">
         {/* 5. Lưu lượng: lượt xem & lượt click */}
         <section className="m2-panel">
-          <div className="m2-head">
-            <h3>Lưu lượng quảng cáo: lượt xem &amp; lượt click</h3>
-            <span>Vùng tô = lượt xem · đường = lượt click. Lượt xem tụt là dấu hiệu ngân sách
-              hoặc giá thầu bị cắt</span>
-          </div>
+          <ChartHead
+            title={`Lưu lượng quảng cáo: lượt xem & lượt click theo ${GRAN_MAP[gr.traf][1].toLowerCase()}`}
+            gran={gr.traf} onGran={setG('traf')} cover={cover}
+            sub={<>Vùng tô = lượt xem · đường = lượt click. Lượt xem tụt là dấu hiệu ngân sách
+              hoặc giá thầu bị cắt</>} />
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={ts} margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
+            <ComposedChart data={tsOf('traf')} margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
               <defs>
                 <linearGradient id="gImp" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#353E99" stopOpacity={0.34} />
@@ -923,7 +938,7 @@ function OverviewTab({ kpi, funnel, series, tseries, gran, setGran }) {
               <Area yAxisId="l" {...SOFT} dataKey="imp" name="Lượt xem (trái)"
                 stroke="#353E99" strokeWidth={2.2} fill="url(#gImp)" activeDot={actOf('#353E99')} />
               <Line yAxisId="r" {...SOFT} dataKey="clk" name="Lượt click (phải)"
-                stroke={C.amber} strokeWidth={2.6} dot={dotOf(C.amber, ts.length)} activeDot={actOf(C.amber)} />
+                stroke={C.amber} strokeWidth={2.6} dot={dotOf(C.amber, tsOf('traf').length)} activeDot={actOf(C.amber)} />
             </ComposedChart>
           </ResponsiveContainer>
         </section>
