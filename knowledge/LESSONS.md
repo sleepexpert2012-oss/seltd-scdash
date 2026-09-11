@@ -98,3 +98,28 @@
      bước im lặng nhìn giống bước khoẻ.
   3. Bộ tự soát phải có một phép kiểm cho **chính bộ theo dõi**: mọi job phải ghi
      nhật ký ở cùng một lượt. Tôi bỏ sót phép kiểm này ở đợt audit hôm trước.
+
+## 11/09/2026 — Chú thích sai còn nguy hiểm hơn không có chú thích
+- **Việc**: dựng màn Giới thiệu & Định nghĩa, đọc lại meta của file dữ liệu.
+- **Sai gì**: mọi file JSON bị đóng dấu *"Đã loại 19 SKU không có trong Master Data
+  (17.9tr doanh thu, ~0.9%)"*. Câu truy vấn join vào `model_sku` THÔ nên đếm cả SKU chỉ
+  bị **đổi tên** — chúng vẫn nằm trong app qua bảng `sku_alias`. Phần mất thật chỉ
+  0,2tr (0,01%). Tệ hơn: con số "~0.9%" là **hằng số gõ tay**, không tính từ dữ liệu,
+  nên không bao giờ tự sai lệch lộ ra.
+- **Rule rút ra**:
+  1. Không bao giờ gõ tay một tỷ lệ vào chú thích — tính từ chính dữ liệu, để nó tự đúng
+     hoặc tự lộ ra khi sai.
+  2. Khi đối chiếu "cái gì bị loại", phải so trên khoá **đã chuẩn hoá**, không so trên
+     khoá thô — nếu không sẽ đếm nhầm phép đổi tên thành mất dữ liệu.
+  3. Kiểm chú thích bằng cách so tổng hai đầu (app vs mart). Lệch 0,2tr mà chú thích nói
+     17,9tr là đủ để biết chú thích sai.
+
+## 11/09/2026 — Từ điển chỉ số phải nằm trong app, không nằm trong đầu
+- **Việc**: dựng tab *Từ điển chỉ số* (44 chỉ số) trong màn Giới thiệu & Định nghĩa.
+- **Vì sao cần**: gần như mọi tranh luận về số trong dự án này hoá ra là **hai người dùng
+  hai định nghĩa khác nhau** cho cùng một chữ (GMV vs doanh thu, phí sàn có gồm voucher
+  không, ROAS nào). Mỗi lần lại giải thích lại từ đầu.
+- **Rule rút ra**: mỗi chỉ số cần ba thứ, không phải một: **công thức · nguồn · cạm bẫy**.
+  Cột "cạm bẫy" (chỗ đã có người đọc sai thật) là cột giá trị nhất và là cột hay bị bỏ nhất.
+  Và phải cảnh báo ngay trong code: sửa công thức mà không sửa từ điển thì nó thành
+  **sai lệch có thẩm quyền**, tệ hơn là không có từ điển.
