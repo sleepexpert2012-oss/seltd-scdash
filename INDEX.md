@@ -23,6 +23,7 @@ Mã nguồn app báo cáo Supply Chain (chạy local). Đặt ngoài OneDrive v�
 | `src/app/shell.css` (khối `m2-*`) | Bố cục dùng chung theo mẫu 2: tiêu đề trang, tabs có icon, dải KPI liền khối, panel tiêu đề uppercase, bảng header navy |
 | `src/screens/Calendar.jsx` + `calendar.css` | **Màn hình 8 — Lịch bán hàng**: heatmap ngày trong tháng · nhịp theo thứ · top ngày · SKU bán trong ngày |
 | `src/data/sales_daily_mock.json` · `scripts/gen_mock_daily.py` | **DỮ LIỆU NGÀY GIẢ** — phân bổ từ sales_mock, tổng tháng giữ nguyên |
+| `src/screens/Guide.jsx` + `guide.css` | **Màn hình 12 — Giới thiệu & Định nghĩa**: 4 tab (app này là gì · từ điển 44 chỉ số có tìm kiếm + cột Cạm bẫy · đọc từng màn · quy ước & giới hạn) |
 | `src/screens/Infra.jsx` tab *Tự soát dữ liệu* | 9 phép kiểm chất lượng dữ liệu, tính lại mỗi lần mở trang — sinh ra từ đợt audit 08/09/2026 |
 | `src/screens/Pnl.jsx` + `pnl.css` | **Màn hình 11 — Lãi lỗ**: thác nước GMV→lãi lỗ (SVG tự vẽ) · 6 tab: tiền rơi ở đâu · theo tháng · phí sàn · vì sao lãi đổi · ngành & SKU · cách tính |
 | `src/screens/ClassModal.jsx` + `classModal.css` | **Màn phụ — Class Dashboard**: drill-down 4 phần, mở từ mọi màn |
@@ -104,6 +105,20 @@ ads vs doanh thu & LN · mỗi 100 đồng doanh thu đi đâu.
 Phễu và biểu đồ chi phí/ROAS **chỉ xuất hiện ở tab Tổng quan**; các tab cấp dưới
 chỉ có biểu đồ của đúng cấp đó (phân tán bong bóng · thanh ngang ghép đôi ·
 cột phân kỳ · treemap · thanh 100% phân bổ).
+
+### Màn hình 12 — Giới thiệu & Định nghĩa (2026-09-11)
+`src/screens/Guide.jsx` + `guide.css`, nhóm *Tài liệu & Hệ thống*. Thay màn nháp cũ
+(ScreenPlaceholder) vốn ghi "sẽ được dựng ở bước kế tiếp" trên link công khai.
+
+4 tab: **App này là gì** (luồng 4 bước · nguồn dữ liệu · mốc dữ liệu · 3 điều nên biết) ·
+**Từ điển chỉ số** (44 chỉ số, tìm kiếm + lọc theo 6 nhóm, mỗi dòng có công thức, nguồn
+và cột **Cạm bẫy**) · **Đọc từng màn** (11 màn: trả lời câu hỏi gì, có gì, dùng khi nào,
+kèm 6 trạng thái tồn) · **Quy ước & giới hạn** (đơn vị, VAT, kỳ so sánh, những gì app
+KHÔNG có, và quy trình 4 bước khi thấy số đáng ngờ).
+
+Công thức chép đúng từ `src/lib/metrics.js` và `scripts/shopee/mart*.sql`. **Sửa công
+thức trong code thì phải sửa ở đây** — nếu không bảng này thành sai lệch có thẩm quyền,
+tệ hơn là không có.
 
 ### Menu (2026-09-08)
 Ba nhóm: **Phân tích kinh doanh** (Tổng quan · Lịch bán hàng · Ngành hàng · Range Review ·

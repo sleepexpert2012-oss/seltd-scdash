@@ -30,11 +30,17 @@ def main():
             from shopee.mart_sales_sku_day s
             join shopee.dim_sku dd on dd.sku = s.sku
             order by s.d, s.sku""")
+        # Phần THẬT SỰ bị loại khỏi app: đối chiếu trên SKU ĐÃ CHUẨN HOÁ (s.sku),
+        # không phải trên model_sku thô. Trước đây join vào model_sku nên đếm cả
+        # những SKU chỉ bị ĐỔI TÊN — chúng vẫn nằm trong app qua bảng sku_alias.
+        # Hậu quả: mọi file JSON bị đóng dấu "đã loại 19 SKU, 17.9tr (~0.9%)"
+        # trong khi phần mất thật chỉ 0,2tr (0,01%). Kiểm 11/09/2026.
         bo = rd(cur, """
-            select coalesce(sum(s.price_paid*s.qty_net),0) rev_bo, count(distinct s.model_sku) sku_bo
+            select coalesce(sum(s.price_paid*s.qty_net),0) rev_bo,
+                   count(distinct s.sku) sku_bo
             from shopee.stg_order_item s
-            left join shopee.dim_sku d on d.sku = s.model_sku
-            where s.model_sku is not null and d.sku is null""")[0]
+            left join shopee.dim_sku d on d.sku = s.sku
+            where s.sku is not null and d.sku is null""")[0]
         stk = rd(cur, "select sku, wh, qty::int qty, as_of from shopee.mart_stock_now where qty <> 0 order by sku, wh")
         whs = rd(cur, """select warehouse_name code, location_id,
                                  payload->>'state' tinh, payload->>'address' dia_chi
@@ -152,7 +158,8 @@ def main():
             'note': ('GMV theo GIÁ THỰC BÁN (giá niêm yết bỏ qua). '
                      'dc = tiền khuyến mãi shop tự bỏ ra (voucher shop + xu), lấy từ escrow. '
                      f"Đã loại {bo['sku_bo']} SKU không có trong Master Data "
-                     f"({num(bo['rev_bo'])/1e6:.1f}tr doanh thu, ~0.9%).")}
+                     f"({num(bo['rev_bo'])/1e6:.1f}tr doanh thu, "
+                     f"{num(bo['rev_bo'])/max(1,sum((r['rev'] or 0) for r in m))*100:.2f}%).")}
 
     sales = {'meta': meta, 'months': months, 'rows': [
         {'sku': r['sku'], 'm': mi[r['ym'].replace('-', '.')], 'ch': 'shopee',

@@ -1,0 +1,126 @@
+/* Màn Giới thiệu & Định nghĩa — dùng chung thanh tab mk-* với các màn khác */
+
+.gd-page .m2-panel > .m2-head {
+  display: block; border-bottom: 1px solid var(--line);
+  padding-bottom: 8px; margin-bottom: 12px;
+}
+.gd-page .m2-panel > .m2-head h3 {
+  font-size: 12.5px; font-weight: 700; color: var(--ink); margin-bottom: 3px;
+}
+.gd-page .m2-panel > .m2-head > span {
+  display: block; font-size: 10.5px; line-height: 1.5; color: var(--muted);
+}
+
+.gd-page > .m2-title { display: flex; align-items: flex-start; gap: 16px; }
+.gd-page > .m2-title > div:first-child { flex: 1 1 auto; min-width: 0; }
+.gd-stamp {
+  flex: 0 0 auto; text-align: right; border-top: 3px solid var(--blue2); padding: 8px 0 0;
+}
+.gd-stamp span {
+  display: block; font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 2px;
+}
+.gd-stamp b { display: block; font-size: 14px; font-weight: 750; color: var(--ink); }
+.gd-stamp i { font-size: 10.5px; font-style: normal; color: var(--muted); }
+
+.gd-body { display: flex; flex-direction: column; gap: 14px; }
+.gd-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: stretch; }
+.gd-row2 > .m2-panel { display: flex; flex-direction: column; }
+@media (max-width: 1100px) { .gd-row2 { grid-template-columns: 1fr; } }
+
+/* ---- 4 bước luồng ---- */
+.gd-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 900px) { .gd-flow { grid-template-columns: repeat(2, 1fr); } }
+.gd-step {
+  display: flex; gap: 9px; align-items: flex-start;
+  border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); padding: 10px 12px;
+}
+.gd-step > b {
+  flex: 0 0 auto; width: 19px; height: 19px; border-radius: 50%;
+  background: var(--navy); color: #fff; font-size: 10.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.gd-step strong { display: block; font-size: 12px; color: var(--ink); margin-bottom: 2px; }
+.gd-step span { font-size: 10.5px; line-height: 1.45; color: var(--muted); }
+
+/* ---- bảng ---- */
+.gd-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.gd-table th {
+  text-align: left; font-size: 9px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--line); padding: 0 8px 6px; white-space: nowrap;
+}
+.gd-table td {
+  padding: 7px 8px; border-bottom: 1px solid var(--border-soft, var(--line));
+  color: var(--ink-2); vertical-align: top;
+}
+.gd-table td b { color: var(--ink); font-weight: 650; }
+.gd-table .sm { font-size: 10.5px; line-height: 1.5; }
+.gd-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.gd-table .hoi { color: var(--ink); font-weight: 600; }
+.gd-table i.grp {
+  display: block; font-size: 9.5px; font-style: normal; color: var(--ink-3); margin-top: 1px;
+}
+.gd-table i.note {
+  display: block; font-family: inherit; font-style: normal;
+  font-size: 10px; color: var(--ink-3); line-height: 1.45; margin-top: 3px;
+}
+.gd-table .bay { color: #8F1D13; }
+.gd-table.dict { min-width: 900px; }
+.gd-table.dict td:nth-child(1) { width: 15%; }
+.gd-table.dict td:nth-child(2) { width: 32%; }
+.gd-table.dict td:nth-child(3) { width: 18%; }
+.gd-empty { text-align: center; color: var(--muted); padding: 22px 0; }
+
+/* ---- bộ lọc từ điển ---- */
+.gd-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.gd-filter input {
+  height: 28px; min-width: 260px; flex: 0 1 320px;
+  border: 1px solid var(--line); border-radius: var(--r-control);
+  background: #fff; padding: 0 10px; font-size: 11.5px; color: var(--ink);
+}
+.gd-filter input:focus { outline: none; border-color: var(--blue2); }
+.gd-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.gd-chips button {
+  height: 24px; padding: 0 10px; border: 1px solid var(--line);
+  border-radius: var(--r-pill); background: #fff; color: var(--ink-2);
+  font-size: 10.5px; font-weight: 600; cursor: pointer;
+}
+.gd-chips button:hover { background: var(--surface-tint); }
+.gd-chips button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.gd-count { font-size: 10.5px; color: var(--muted); margin-left: auto; }
+
+/* ---- danh sách khoá-giá trị ---- */
+.gd-kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
+.gd-kv dt { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.gd-kv dd { margin: 0; font-size: 11.5px; color: var(--ink); }
+
+.gd-note {
+  margin: 10px 0 0; font-size: 10.5px; line-height: 1.55; color: var(--muted);
+  border-top: 1px dashed var(--line); padding-top: 8px;
+}
+.gd-note.warn { color: #9A5B06; border-top-color: var(--amber); }
+
+.gd-ol, .gd-ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 9px; }
+.gd-ol li, .gd-ul li { font-size: 11.5px; line-height: 1.6; color: var(--ink-2); }
+.gd-ol li b, .gd-ul li b { color: var(--ink); }
+
+/* ---- 6 trạng thái tồn ---- */
+.gd-status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 900px) { .gd-status { grid-template-columns: repeat(2, 1fr); } }
+.gd-st {
+  display: flex; gap: 9px; align-items: flex-start;
+  border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); padding: 9px 11px;
+}
+.gd-st .ic { font-size: 13px; line-height: 1.2; }
+.gd-st strong { display: block; font-size: 11.5px; color: var(--ink); margin-bottom: 2px; }
+.gd-st span { font-size: 10.5px; line-height: 1.45; color: var(--muted); }
+
+@media print {
+  .gd-page .mk-tabbar, .gd-filter { display: none !important; }
+  .gd-page .m2-tablewrap { overflow: visible !important; border: 0 !important; }
+  .gd-table.dict { min-width: 0 !important; font-size: 9px; }
+  .gd-page .m2-panel { break-inside: avoid-page; }
+}

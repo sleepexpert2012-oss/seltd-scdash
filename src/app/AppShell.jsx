@@ -17,6 +17,7 @@ import Stock from '../screens/Stock'
 import Forecast from '../screens/Forecast'
 import Marketing from '../screens/Marketing'
 import Pnl from '../screens/Pnl'
+import Guide from '../screens/Guide'
 import Infra from '../screens/Infra'
 import CalendarScreen from '../screens/Calendar'
 import './shell.css'
@@ -129,6 +130,7 @@ export default function AppShell({ onLogout }) {
               : page === 'stock' ? <Stock filters={filters} setFilters={setFilters} />
               : page === 'forecast' ? <Forecast filters={filters} />
               : page === 'infra' ? <Infra />
+              : page === 'guide' ? <Guide />
               : <ScreenPlaceholder page={current} filters={filters} />}
           </ErrorBoundary>
         </div>
