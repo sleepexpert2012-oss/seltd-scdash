@@ -302,13 +302,18 @@
   white-space: normal;
 }
 .m2-tablewrap td.wh-col { font-variant-numeric: tabular-nums; }
-/* Kho lưu trữ làm mờ để không ai cộng nhầm vào tồn khả dụng.
-   CHỈ làm mờ ô THÂN bảng — hàng tiêu đề có nền navy sticky, đắp nền sáng lên
-   đó thì cột thủng một mảng trắng giữa hàng tiêu đề. Ở tiêu đề chỉ hạ độ đậm
-   của chữ, giữ nguyên nền. */
-.m2-tablewrap td.wh-col.store { background: var(--surface-soft); color: var(--ink-3); }
-.m2-tablewrap th.wh-col.store { color: rgba(255, 255, 255, .62); }
-.m2-tablewrap th.wh-col.store i { color: rgba(255, 255, 255, .48); }
+/* Kho lưu trữ phải nhìn ra ngay là KHÔNG cộng vào tồn khả dụng.
+   KHÔNG dùng nền riêng cho cột này: nền sáng hơn nền sọc của hàng
+   (250,251,253 so với 241,243,250) nên nó thành một vệt trắng cắt dọc bảng,
+   trông như lỗi render chứ không phải làm mờ. Và ở hàng tiêu đề thì nó đè
+   luôn nền navy sticky.
+   Cách dùng: giữ nguyên nền của hàng, chỉ hạ độ đậm chữ và kẻ một vạch ngăn
+   bên trái để WH01–WH03 đọc thành một khối, WH04 nằm ngoài khối đó. */
+.m2-tablewrap td.wh-col.store { color: var(--ink-3); }
+.m2-tablewrap th.wh-col.store { color: rgba(255, 255, 255, .6); }
+.m2-tablewrap th.wh-col.store i { color: rgba(255, 255, 255, .45); }
+.m2-tablewrap th.wh-col.store, .m2-tablewrap td.wh-col.store { border-left: 1px dashed var(--line); }
+.m2-tablewrap th.wh-col.store { border-left-color: rgba(255, 255, 255, .3); }
 /* 14 cột nên phải cho cuộn ngang thay vì bóp chữ */
 .m2-tablewrap.tall table { min-width: 1080px; }
 @media print {
