@@ -302,10 +302,13 @@
   white-space: normal;
 }
 .m2-tablewrap td.wh-col { font-variant-numeric: tabular-nums; }
-.m2-tablewrap th.wh-col.store, .m2-tablewrap td.wh-col.store {
-  background: var(--surface-soft); color: var(--ink-3);
-}
-.m2-tablewrap th.wh-col.store i { color: var(--ink-3); }
+/* Kho lưu trữ làm mờ để không ai cộng nhầm vào tồn khả dụng.
+   CHỈ làm mờ ô THÂN bảng — hàng tiêu đề có nền navy sticky, đắp nền sáng lên
+   đó thì cột thủng một mảng trắng giữa hàng tiêu đề. Ở tiêu đề chỉ hạ độ đậm
+   của chữ, giữ nguyên nền. */
+.m2-tablewrap td.wh-col.store { background: var(--surface-soft); color: var(--ink-3); }
+.m2-tablewrap th.wh-col.store { color: rgba(255, 255, 255, .62); }
+.m2-tablewrap th.wh-col.store i { color: rgba(255, 255, 255, .48); }
 /* 14 cột nên phải cho cuộn ngang thay vì bóp chữ */
 .m2-tablewrap.tall table { min-width: 1080px; }
 @media print {
@@ -313,3 +316,27 @@
   .m2-tablewrap.tall table { min-width: 0 !important; font-size: 8.5px; }
   .m2-tablewrap th.wh-col i { font-size: 7px; }
 }
+
+/* ---- Tuổi tồn gộp vào bảng chi tiết ---- */
+.age-pill {
+  display: inline-flex; align-items: baseline; gap: 3px;
+  padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: 10.5px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.age-pill i { font-style: normal; font-size: 8.5px; font-weight: 500; opacity: .7; }
+.age-pill.b-a { background: #E4F3EA; color: var(--good); }
+.age-pill.b-b { background: #EFF0F6; color: var(--ink-2); }
+.age-pill.b-c { background: #FDF0DC; color: #9A5B06; }
+.age-pill.b-d { background: #FBEAE8; color: var(--bad); }
+.age-pill.b-x { background: var(--surface-soft); color: var(--ink-3); }
+
+/* dải nhóm tuổi nay bấm được để lọc bảng */
+.age-grid button.age-card {
+  border: 1px solid var(--line); cursor: pointer; text-align: left;
+  font: inherit; appearance: none;
+}
+.age-grid button.age-card:hover { background: var(--surface-tint); }
+.age-grid button.age-card.on {
+  border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy);
+}
+.m2-tablewrap.tall table { min-width: 1240px; }

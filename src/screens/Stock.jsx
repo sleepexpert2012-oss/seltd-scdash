@@ -34,7 +34,6 @@ const WH_COLOR = ['#353E99', '#5C67C4', '#8E96DC', '#C3C0D7']
 const TABS = [
   ['overview', '▦', 'Tổng quan tồn kho'],
   ['detail', '≡', 'Chi tiết loại hình & SKU'],
-  ['age', '◷', 'Tuổi tồn kho'],
   ['action', '⚑', 'Tổng hợp hành động'],
   ['phantom', '⚗', 'Tồn ảo trên Shopee'],
   ['setting', '⚙', 'Tham số tính toán'],
@@ -43,6 +42,7 @@ const TABS = [
 export default function Stock({ filters, setFilters }) {
   const [tab, setTab] = useState('overview')
   const [sttFilter, setSttFilter] = useState(null)
+  const [ageFilter, setAgeFilter] = useState(null)   // lọc bảng chi tiết theo nhóm tuổi tồn
   const [tick, setTick] = useState(0)
 
   const d = useMemo(() => {
@@ -86,10 +86,17 @@ export default function Stock({ filters, setFilters }) {
     for (const w of WAREHOUSES) whTotals[w.code] = rows.reduce((a, r) => a + (r.byWh[w.code] || 0), 0)
 
     const asOf = new Date(STOCK_AS_OF_DATE)
-    const aged = rows.filter(r => r.ton > 0).map(r => {
+    /* Tuổi tồn gắn thẳng vào từng dòng để bảng "Chi tiết loại hình & SKU" dùng
+       chung — trước đây nó chỉ sống trong tab Tuổi tồn kho riêng, người dùng phải
+       nhảy qua lại giữa hai bảng cho cùng một SKU. */
+    for (const r of rows) {
       const last = LAST_RECEIPT[r.sku]
-      return { ...r, lastReceipt: last, days: last ? Math.round((asOf - new Date(last)) / 86400000) : null }
-    })
+      r.lastReceipt = last || null
+      r.days = last ? Math.round((asOf - new Date(last)) / 86400000) : null
+      r.band = r.days == null ? 'x'
+        : r.days < 90 ? 'a' : r.days < 180 ? 'b' : r.days < 365 ? 'c' : 'd'
+    }
+    const aged = rows.filter(r => r.ton > 0)
     const AGE_BANDS = [
       { id: 'a', label: 'Dưới 3 tháng', lo: 0, hi: 90 },
       { id: 'b', label: '3 – 6 tháng', lo: 90, hi: 180 },
@@ -114,7 +121,12 @@ export default function Stock({ filters, setFilters }) {
     }
   }, [filters, tick])
 
-  const listRows = sttFilter == null ? d.rows : d.rows.filter(r => r.stt === sttFilter)
+  const listRows = d.rows
+    .filter(r => sttFilter == null || r.stt === sttFilter)
+    /* Lọc theo nhóm tuổi thì chỉ giữ SKU ĐANG CÓ TỒN: SKU tồn 0 không có tuổi tồn
+       để nói tới, và thẻ nhóm tuổi cũng chỉ đếm SKU có tồn — không đồng bộ hai chỗ
+       thì thẻ báo 9 mà bảng ra 10 dòng. */
+    .filter(r => ageFilter == null || (r.ton > 0 && r.band === ageFilter))
   const salesWh = WAREHOUSES.filter(w => w.type === 'Kho bán hàng')
   const storeTon = salesWh.slice(1).reduce((a, w) => a + (d.whTotals[w.code] || 0), 0)
   const otherTon = WAREHOUSES.filter(w => w.type !== 'Kho bán hàng').reduce((a, w) => a + (d.whTotals[w.code] || 0), 0)
@@ -219,36 +231,33 @@ export default function Stock({ filters, setFilters }) {
             <div>
               <h3>Chi tiết tồn kho theo loại hình &amp; SKU</h3>
               <p>
-                {sttFilter != null ? `Đang lọc: ${STATUS[sttFilter].icon} ${STATUS[sttFilter].label} · ` : ''}
-                SS = {Z_SERVICE} × σ × √(LT/30) · ROP = sức bán × LT/30 + SS · Mức đặt tới = ROP + 1 tháng nhu cầu
+                {sttFilter != null ? `Đang lọc trạng thái: ${STATUS[sttFilter].icon} ${STATUS[sttFilter].label} · ` : ''}
+                {ageFilter != null ? `Đang lọc tuổi tồn: ${d.AGE_BANDS.find(b => b.id === ageFilter)?.label} · ` : ''}
+                SS = {Z_SERVICE} × σ × √(LT/30) · ROP = sức bán × LT/30 + SS · Mức đặt tới = ROP + 1 tháng nhu cầu ·
+                tuổi tồn tính từ lần nhận hàng gần nhất trong dữ liệu PO đến {STOCK_AS_OF}
               </p>
             </div>
-            {sttFilter != null && <div className="tools"><button className="link-btn" onClick={() => setSttFilter(null)}>Bỏ lọc</button></div>}
+            {(sttFilter != null || ageFilter != null) && (
+              <div className="tools">
+                <button className="link-btn"
+                  onClick={() => { setSttFilter(null); setAgeFilter(null) }}>Bỏ lọc</button>
+              </div>
+            )}
+          </div>
+          {/* Dải nhóm tuổi: gộp từ tab "Tuổi tồn kho" cũ. Bấm để lọc luôn bảng bên
+              dưới — trước đây hai bảng tách rời nên phải tự dò SKU qua lại. */}
+          <div className="age-grid">
+            {d.AGE_BANDS.map(b => (
+              <button key={b.id} type="button"
+                className={'age-card' + (b.id === 'd' ? ' warn' : '') + (ageFilter === b.id ? ' on' : '')}
+                onClick={() => setAgeFilter(ageFilter === b.id ? null : b.id)}>
+                <span>{b.label}</span><strong>{b.count}</strong>
+                <small>{num(b.ton)} unit · {trieu(b.value)} triệu</small>
+              </button>
+            ))}
           </div>
           <DetailTable rows={listRows} />
         </div>
-      )}
-
-      {tab === 'age' && (
-        <>
-          <div className="m2-panel">
-            <div className="m2-head">
-              <div>
-                <h3>Tuổi tồn kho</h3>
-                <p>Tính từ lần nhận hàng gần nhất trong dữ liệu PO đến thời điểm chốt tồn {STOCK_AS_OF}</p>
-              </div>
-            </div>
-            <div className="age-grid">
-              {d.AGE_BANDS.map(b => (
-                <div key={b.id} className={'age-card' + (b.id === 'd' ? ' warn' : '')}>
-                  <span>{b.label}</span><strong>{b.count}</strong>
-                  <small>{num(b.ton)} unit · {trieu(b.value)} triệu</small>
-                </div>
-              ))}
-            </div>
-          </div>
-          <AgeGroups aged={d.aged} />
-        </>
       )}
 
       {tab === 'action' && (
@@ -319,159 +328,6 @@ const AGE_OF = days => {
   return { id: 'd', label: 'Trên 12 tháng', cls: 'd' }
 }
 
-function AgeGroups({ aged }) {
-  const { open: drillSafe } = useDrill()
-  const [open, setOpen] = useState(null)
-  const [sort, setSort] = useState('age')
-
-  const tree = useMemo(() => {
-    const ng = new Map()
-    for (const r of aged) {
-      const g = ng.get(r.nganh) || { key: r.nganh, ton: 0, value: 0, skus: 0, ageW: 0, ageT: 0, types: new Map() }
-      g.ton += r.ton; g.value += r.value; g.skus++
-      if (r.days != null) { g.ageW += r.days * r.ton; g.ageT += r.ton }
-      const t = g.types.get(r.className) || { key: r.className, ton: 0, value: 0, skus: 0, ageW: 0, ageT: 0, rows: [] }
-      t.ton += r.ton; t.value += r.value; t.skus++
-      if (r.days != null) { t.ageW += r.days * r.ton; t.ageT += r.ton }
-      t.rows.push(r)
-      g.types.set(r.className, t)
-      ng.set(r.nganh, g)
-    }
-    const fin = o => ({ ...o, age: o.ageT > 0 ? Math.round(o.ageW / o.ageT) : null })
-    return [...ng.values()].map(g => fin({
-      ...g,
-      types: [...g.types.values()].map(fin).sort(cmp(sort)),
-    })).sort(cmp(sort))
-  }, [aged, sort])
-
-  function cmp(key) {
-    return (a, b) => {
-      if (key === 'age') return (b.age ?? -1) - (a.age ?? -1)
-      if (key === 'ton') return b.ton - a.ton
-      return b.value - a.value
-    }
-  }
-
-  const openSet = open ?? new Set(tree.slice(0, 1).map(g => g.key))
-  const toggle = k => {
-    const n = new Set(openSet)
-    n.has(k) ? n.delete(k) : n.add(k)
-    setOpen(n)
-  }
-
-  const totTon = aged.reduce((a, r) => a + r.ton, 0)
-  const totVal = aged.reduce((a, r) => a + r.value, 0)
-
-  return (
-    <div className="m2-panel">
-      <div className="m2-head">
-        <div>
-          <h3>Toàn bộ SKU đang tồn — theo tuổi kho</h3>
-          <p>
-            Gộp theo Ngành → Sản phẩm → SKU · tuổi tính từ lần nhận hàng gần nhất trong dữ liệu PO ·
-            tuổi của nhóm là bình quân gia quyền theo lượng tồn
-          </p>
-        </div>
-        <div className="tools">
-          <div className="basis-switch">
-            <span>Sắp theo</span>
-            {[['age', 'Tuổi tồn'], ['value', 'Giá vốn'], ['ton', 'Số lượng']].map(([k, l]) => (
-              <button key={k} className={'chip' + (sort === k ? ' on' : '')} onClick={() => setSort(k)}>{l}</button>
-            ))}
-          </div>
-          <button className="xls-btn" onClick={() => setOpen(new Set(tree.map(g => g.key)))}>▼ Mở tất cả</button>
-          <button className="xls-btn" onClick={() => setOpen(new Set())}>▶ Đóng tất cả</button>
-        </div>
-      </div>
-
-      <div className="m2-tablewrap tall">
-        <table>
-          <thead>
-            <tr>
-              <th>Ngành / Sản phẩm / SKU</th>
-              <th className="num">SKU</th>
-              <th className="num">Tồn (u)</th>
-              <th className="num">Giá vốn (tr)</th>
-              <th className="num">Nhập gần nhất</th>
-              <th className="num">Tuổi tồn (ngày)</th>
-              <th>Nhóm tuổi</th>
-              <th className="num">Tháng bán còn</th>
-              <th>Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tree.map(g => (
-              <Fragment key={g.key}>
-                <tr className="grp" onClick={() => toggle(g.key)}>
-                  <td><b>{openSet.has(g.key) ? '▾' : '▸'} {g.key}</b><small>{g.types.length} sản phẩm</small></td>
-                  <td className="num">{g.skus}</td>
-                  <td className="num strong">{num(g.ton)}</td>
-                  <td className="num strong">{trieu(g.value)}</td>
-                  <td className="num dim">—</td>
-                  <td className="num"><b>{g.age == null ? '—' : num(g.age)}</b></td>
-                  <td><span className={'age-tag t' + AGE_OF(g.age).cls}>{AGE_OF(g.age).label}</span></td>
-                  <td className="num dim">—</td>
-                  <td />
-                </tr>
-
-                {openSet.has(g.key) && g.types.map(t => (
-                  <Fragment key={g.key + t.key}>
-                    <tr className="sub" onClick={() => toggle(g.key + '|' + t.key)}>
-                      <td>
-                        <b>{openSet.has(g.key + '|' + t.key) ? '▾' : '▸'} {t.key}</b>
-                        <small>
-                          {t.rows.length} SKU ·{' '}
-                          <i className="drill-link" onClick={e => { e.stopPropagation(); drillSafe(t.key) }}>phân tích sâu →</i>
-                        </small>
-                      </td>
-                      <td className="num">{t.skus}</td>
-                      <td className="num strong">{num(t.ton)}</td>
-                      <td className="num">{trieu(t.value)}</td>
-                      <td className="num dim">—</td>
-                      <td className="num"><b>{t.age == null ? '—' : num(t.age)}</b></td>
-                      <td><span className={'age-tag t' + AGE_OF(t.age).cls}>{AGE_OF(t.age).label}</span></td>
-                      <td className="num dim">—</td>
-                      <td />
-                    </tr>
-
-                    {openSet.has(g.key + '|' + t.key) && [...t.rows]
-                      .sort((a, b) => (b.days ?? -1) - (a.days ?? -1))
-                      .map(r => (
-                        <tr key={r.sku} className="child">
-                          <td><b>{r.name}</b><small>{r.sku}</small></td>
-                          <td className="num dim">—</td>
-                          <td className="num strong">{num(r.ton)}</td>
-                          <td className="num">{trieu(r.value)}</td>
-                          <td className="num">{r.lastReceipt || <span className="dim">—</span>}</td>
-                          <td className="num">
-                            {r.days == null ? <span className="dim">—</span>
-                              : <b className={r.days > 365 ? 'need' : ''}>{num(r.days)}</b>}
-                          </td>
-                          <td><span className={'age-tag t' + AGE_OF(r.days).cls}>{AGE_OF(r.days).label}</span></td>
-                          <td className="num">{r.ml >= 60 ? '60+' : r.ml.toFixed(1)}</td>
-                          <td><span className={'pri p' + r.stt}>{STATUS[r.stt].icon} {STATUS[r.stt].label}</span></td>
-                        </tr>
-                      ))}
-                  </Fragment>
-                ))}
-              </Fragment>
-            ))}
-
-            <tr className="tot">
-              <td><b>TỔNG</b><small>{aged.length} SKU đang có tồn</small></td>
-              <td className="num">{aged.length}</td>
-              <td className="num strong">{num(totTon)}</td>
-              <td className="num strong">{trieu(totVal)}</td>
-              <td className="num" /><td className="num" /><td /><td className="num" /><td />
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-/* Cơ cấu tồn theo kho: donut gọn + bảng chú giải có số liệu, tổng đặt ở tâm */
 function WarehouseDonut({ whTotals, total, byNganh }) {
   const data = WAREHOUSES.map((w, i) => ({
     code: w.code, name: w.name, type: w.type,
@@ -741,14 +597,41 @@ function CoverPanel({ rows, plan, aged }) {
   )
 }
 
+const AGE_LB = { a: 'Dưới 3 tháng', b: '3–6 tháng', c: '6–12 tháng', d: 'Trên 12 tháng', x: 'Chưa có dữ liệu nhập' }
+
+const fmtDate = s => {
+  if (!s) return <span className="dim">—</span>
+  const d = new Date(s)
+  return isNaN(d) ? <span className="dim">—</span>
+    : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+/* Ô tuổi tồn: số ngày + chấm màu theo nhóm. `lau` = dòng loại hình, đang hiện
+   SKU GIÀ NHẤT trong nhóm chứ không phải trung bình -> nói rõ trong tooltip. */
+function AgeCell({ days, band, lau }) {
+  if (days == null) return <span className="dim" title="Chưa có dữ liệu nhập trong PO">—</span>
+  return (
+    <span className={`age-pill b-${band}`}
+      title={`${AGE_LB[band]}${lau ? ' — SKU nằm lâu nhất trong loại hình này' : ''}`}>
+      {num(days)}<i>ngày</i>
+    </span>
+  )
+}
+
 function DetailTable({ rows }) {
   if (!rows.length) return <p className="empty">Không có SKU nào trong phạm vi này.</p>
   const byType = new Map()
   for (const r of rows) {
     const t = byType.get(r.className)
-      || { key: r.className, nganh: r.nganh, rows: [], ton: 0, value: 0, need: 0, byWh: {} }
+      || { key: r.className, nganh: r.nganh, rows: [], ton: 0, value: 0, need: 0, byWh: {},
+            days: null, band: 'x', lastReceipt: null }
     t.rows.push(r); t.ton += r.ton; t.value += r.value; t.need += r.need
     for (const [wh, q] of Object.entries(r.byWh || {})) t.byWh[wh] = (t.byWh[wh] || 0) + q
+    /* Ở cấp loại hình lấy dòng GIÀ NHẤT, không lấy trung bình: trung bình tuổi tồn
+       che mất đúng thứ cần thấy là lô hàng nằm lâu nhất. */
+    if (r.days != null && (t.days == null || r.days > t.days)) {
+      t.days = r.days; t.band = r.band; t.lastReceipt = r.lastReceipt
+    }
     byType.set(r.className, t)
   }
   const groups = [...byType.values()].sort((a, b) => b.value - a.value)
@@ -782,6 +665,7 @@ function TypeGroups({ groups }) {
               </th>
             ))}
             <th className="num">Tồn khả dụng</th><th className="num">Giá vốn</th>
+            <th>Nhập gần nhất</th><th className="num">Tuổi tồn</th>
             <th className="num">Sức bán 3T</th><th className="num">σ tháng</th><th className="num">Tháng bán còn</th>
             <th className="num">SS</th><th className="num">ROP</th><th className="num">Cần đặt</th>
           </tr>
@@ -805,6 +689,8 @@ function TypeGroups({ groups }) {
                 ))}
                 <td className="num strong">{num(g.ton)}</td>
                 <td className="num">{trieu(g.value)}</td>
+                <td className="sm">{fmtDate(g.lastReceipt)}</td>
+                <td className="num"><AgeCell days={g.days} band={g.band} lau /></td>
                 <td className="num" colSpan={5} />
                 <td className="num">{g.need > 0 ? <b className="need">{num(g.need)}</b> : <span className="dim">—</span>}</td>
               </tr>
@@ -819,6 +705,8 @@ function TypeGroups({ groups }) {
                   ))}
                   <td className="num strong">{num(r.ton)}</td>
                   <td className="num">{trieu(r.value)}</td>
+                  <td className="sm">{fmtDate(r.lastReceipt)}</td>
+                  <td className="num"><AgeCell days={r.days} band={r.band} /></td>
                   <td className="num">{r.vel3.toFixed(1)}</td>
                   <td className="num">{r.sd.toFixed(1)}</td>
                   <td className="num">{r.ml >= 60 ? '60+' : r.ml.toFixed(1)}</td>
