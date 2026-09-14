@@ -674,12 +674,19 @@ function TypeGroups({ groups }) {
           {groups.map(g => (
             <Fragment key={g.key}>
               <tr className="grp" onClick={() => toggle(g.key)}>
-                <td>
-                  <b>{open.has(g.key) ? '▾' : '▸'} {g.key}</b>
-                  <small>
-                    {g.nganh} · {g.rows.length} SKU ·{' '}
-                    <i className="drill-link" onClick={e => { e.stopPropagation(); drill(g.key) }}>phân tích sâu →</i>
-                  </small>
+                {/* Ô tên: mũi tên mở/đóng cố định chiều rộng để các hàng thẳng cột,
+                    ngành thành chip nhỏ, và "phân tích sâu" rút thành một nút ↗ chỉ
+                    hiện khi rê chuột — trước đây 12 dòng chữ gạch chân giống hệt nhau
+                    lặp xuống cả bảng, hút hết mắt khỏi chính cái tên loại hình. */}
+                <td className="nm-cell">
+                  <div className="nm-top">
+                    <span className="caret" aria-hidden>{open.has(g.key) ? '▾' : '▸'}</span>
+                    <b>{g.key}</b>
+                    <button type="button" className="drill-btn"
+                      title={`Xem phân tích sâu: ${g.key}`}
+                      onClick={e => { e.stopPropagation(); drill(g.key) }}>↗</button>
+                  </div>
+                  <small><span className="ng-chip">{g.nganh}</span>{g.rows.length} SKU</small>
                 </td>
                 <td />
                 {WAREHOUSES.map(w => (
@@ -696,7 +703,10 @@ function TypeGroups({ groups }) {
               </tr>
               {open.has(g.key) && g.rows.sort((a, b) => a.stt - b.stt || b.value - a.value).map(r => (
                 <tr key={r.sku} className="child">
-                  <td><b>{r.name}</b><small>{r.sku} · LT {r.LT} ngày</small></td>
+                  <td className="nm-cell">
+                    <b>{r.name}</b>
+                    <small><span className="sku-code">{r.sku}</span>LT {r.LT} ngày</small>
+                  </td>
                   <td><span className={'pri p' + r.stt}>{STATUS[r.stt].icon} {STATUS[r.stt].label}</span></td>
                   {WAREHOUSES.map(w => (
                     <td key={w.code} className={`num wh-col${w.type === 'Kho bán hàng' ? '' : ' store'}`}>

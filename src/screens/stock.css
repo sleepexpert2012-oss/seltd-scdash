@@ -298,7 +298,7 @@
 .m2-tablewrap th.wh-col i {
   display: block; margin-top: 2px; font-style: italic; font-weight: 400;
   font-size: 8.5px; letter-spacing: 0; text-transform: none;
-  color: var(--ink-3); max-width: 88px; margin-left: auto; line-height: 1.25;
+  color: var(--ink-3); max-width: 104px; margin-left: auto; line-height: 1.2;
   white-space: normal;
 }
 .m2-tablewrap td.wh-col { font-variant-numeric: tabular-nums; }
@@ -345,3 +345,39 @@
   border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy);
 }
 .m2-tablewrap.tall table { min-width: 1240px; }
+
+/* ---- Ô tên trong bảng chi tiết: bớt rối ---- */
+.m2-tablewrap td.nm-cell { min-width: 236px; }
+.nm-top { display: flex; align-items: baseline; gap: 6px; }
+.nm-top .caret {
+  flex: 0 0 9px; font-size: 9px; color: var(--blue2); line-height: 1.4;
+}
+.nm-top > b { flex: 1 1 auto; min-width: 0; }
+.nm-top .drill-btn {
+  flex: 0 0 auto; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px;
+  background: transparent; color: var(--blue2); font-size: 11px; line-height: 1;
+  cursor: pointer; opacity: 0; transition: opacity .12s;
+}
+.m2-tablewrap tr:hover .drill-btn, .drill-btn:focus-visible { opacity: 1; }
+.nm-top .drill-btn:hover { background: var(--blue2); color: #fff; }
+.m2-tablewrap td.nm-cell small { display: flex; align-items: center; gap: 5px; }
+.ng-chip, .sku-code {
+  display: inline-block; padding: 0 5px; border-radius: 3px;
+  background: var(--surface-soft); color: var(--ink-3);
+  font-size: 8.5px; font-weight: 650; letter-spacing: .02em;
+}
+.sku-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; }
+
+/* Ghim cột tên khi cuộn ngang 16 cột — không ghim thì cuộn sang phải là mất
+   tên, phải nhớ đang đọc dòng nào. Ô ghim bắt buộc phải có nền đục. */
+.m2-tablewrap.tall th:first-child,
+.m2-tablewrap.tall td:first-child { position: sticky; left: 0; }
+.m2-tablewrap.tall td:first-child { z-index: 1; background: #fff; }
+.m2-tablewrap.tall tr.grp td:first-child { background: var(--surface-tint); }
+.m2-tablewrap.tall tbody tr:hover td:first-child { background: var(--surface-soft); }
+.m2-tablewrap.tall th:first-child { z-index: 3; background: var(--navy); }
+.m2-tablewrap.tall th:first-child::after,
+.m2-tablewrap.tall td:first-child::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 6px;
+  pointer-events: none; box-shadow: inset 6px 0 5px -5px rgba(35, 42, 107, .22);
+}
