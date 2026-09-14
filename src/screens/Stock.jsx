@@ -745,8 +745,10 @@ function DetailTable({ rows }) {
   if (!rows.length) return <p className="empty">Không có SKU nào trong phạm vi này.</p>
   const byType = new Map()
   for (const r of rows) {
-    const t = byType.get(r.className) || { key: r.className, nganh: r.nganh, rows: [], ton: 0, value: 0, need: 0 }
+    const t = byType.get(r.className)
+      || { key: r.className, nganh: r.nganh, rows: [], ton: 0, value: 0, need: 0, byWh: {} }
     t.rows.push(r); t.ton += r.ton; t.value += r.value; t.need += r.need
+    for (const [wh, q] of Object.entries(r.byWh || {})) t.byWh[wh] = (t.byWh[wh] || 0) + q
     byType.set(r.className, t)
   }
   const groups = [...byType.values()].sort((a, b) => b.value - a.value)
@@ -767,7 +769,19 @@ function TypeGroups({ groups }) {
       <table>
         <thead>
           <tr>
-            <th>Loại hình / SKU</th><th>Trạng thái</th><th className="num">Tồn</th><th className="num">Giá vốn</th>
+            <th>Loại hình / SKU</th><th>Trạng thái</th>
+            {/* Tồn tách theo từng kho. WH kho lưu trữ (hàng lỗi) vẫn hiện để biết hàng
+                đang nằm đâu, nhưng KHÔNG cộng vào "Tồn khả dụng" — nên tổng các cột kho
+                sẽ lớn hơn cột Tồn khả dụng đúng bằng phần nằm ở kho lưu trữ. */}
+            {WAREHOUSES.map(w => (
+              <th key={w.code} className={`num wh-col${w.type === 'Kho bán hàng' ? '' : ' store'}`}
+                title={w.type === 'Kho bán hàng'
+                  ? `${w.name} — kho bán hàng, có tính vào tồn khả dụng`
+                  : `${w.name} — ${w.type}, KHÔNG tính vào tồn khả dụng`}>
+                {w.code}<i>{w.name}</i>
+              </th>
+            ))}
+            <th className="num">Tồn khả dụng</th><th className="num">Giá vốn</th>
             <th className="num">Sức bán 3T</th><th className="num">σ tháng</th><th className="num">Tháng bán còn</th>
             <th className="num">SS</th><th className="num">ROP</th><th className="num">Cần đặt</th>
           </tr>
@@ -784,6 +798,11 @@ function TypeGroups({ groups }) {
                   </small>
                 </td>
                 <td />
+                {WAREHOUSES.map(w => (
+                  <td key={w.code} className={`num wh-col${w.type === 'Kho bán hàng' ? '' : ' store'}`}>
+                    {g.byWh[w.code] ? num(g.byWh[w.code]) : <span className="dim">—</span>}
+                  </td>
+                ))}
                 <td className="num strong">{num(g.ton)}</td>
                 <td className="num">{trieu(g.value)}</td>
                 <td className="num" colSpan={5} />
@@ -793,6 +812,11 @@ function TypeGroups({ groups }) {
                 <tr key={r.sku} className="child">
                   <td><b>{r.name}</b><small>{r.sku} · LT {r.LT} ngày</small></td>
                   <td><span className={'pri p' + r.stt}>{STATUS[r.stt].icon} {STATUS[r.stt].label}</span></td>
+                  {WAREHOUSES.map(w => (
+                    <td key={w.code} className={`num wh-col${w.type === 'Kho bán hàng' ? '' : ' store'}`}>
+                      {r.byWh?.[w.code] ? num(r.byWh[w.code]) : <span className="dim">—</span>}
+                    </td>
+                  ))}
                   <td className="num strong">{num(r.ton)}</td>
                   <td className="num">{trieu(r.value)}</td>
                   <td className="num">{r.vel3.toFixed(1)}</td>

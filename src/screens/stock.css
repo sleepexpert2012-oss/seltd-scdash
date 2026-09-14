@@ -290,3 +290,26 @@
 .ph-log .hd { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .ph-log .hd b { font-size: 12px; color: var(--ink); }
 .ph-log .hd span { font-size: 10.5px; color: var(--muted); flex: 1 1 260px; }
+
+/* ---- Chi tiết loại hình & SKU: cột Tồn tách theo từng kho ----
+   Mã kho ở trên, tên kho chữ nghiêng nhỏ bên dưới. Kho lưu trữ (hàng lỗi) làm
+   mờ vì nó KHÔNG cộng vào tồn khả dụng — nhìn là biết ngay đừng cộng nhầm. */
+.m2-tablewrap th.wh-col { text-align: right; white-space: nowrap; vertical-align: bottom; }
+.m2-tablewrap th.wh-col i {
+  display: block; margin-top: 2px; font-style: italic; font-weight: 400;
+  font-size: 8.5px; letter-spacing: 0; text-transform: none;
+  color: var(--ink-3); max-width: 88px; margin-left: auto; line-height: 1.25;
+  white-space: normal;
+}
+.m2-tablewrap td.wh-col { font-variant-numeric: tabular-nums; }
+.m2-tablewrap th.wh-col.store, .m2-tablewrap td.wh-col.store {
+  background: var(--surface-soft); color: var(--ink-3);
+}
+.m2-tablewrap th.wh-col.store i { color: var(--ink-3); }
+/* 14 cột nên phải cho cuộn ngang thay vì bóp chữ */
+.m2-tablewrap.tall table { min-width: 1080px; }
+@media print {
+  /* 14 cột với min-width 1080px sẽ tràn khổ giấy -> bỏ min-width và thu chữ */
+  .m2-tablewrap.tall table { min-width: 0 !important; font-size: 8.5px; }
+  .m2-tablewrap th.wh-col i { font-size: 7px; }
+}
