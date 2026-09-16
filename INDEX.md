@@ -23,6 +23,7 @@ Mã nguồn app báo cáo Supply Chain (chạy local). Đặt ngoài OneDrive v�
 | `src/app/shell.css` (khối `m2-*`) | Bố cục dùng chung theo mẫu 2: tiêu đề trang, tabs có icon, dải KPI liền khối, panel tiêu đề uppercase, bảng header navy |
 | `src/screens/Calendar.jsx` + `calendar.css` | **Màn hình 8 — Lịch bán hàng**: heatmap ngày trong tháng · nhịp theo thứ · top ngày · SKU bán trong ngày |
 | `src/data/sales_daily_mock.json` · `scripts/gen_mock_daily.py` | **DỮ LIỆU NGÀY GIẢ** — phân bổ từ sales_mock, tổng tháng giữ nguyên |
+| `src/screens/Cashflow.jsx` + `cashflow.css` | **Màn hình 13 — Dòng tiền**: kế hoạch dòng tiền theo tuần ISO, người dùng tự nhập, app nối tuần + cảnh báo tuần âm quỹ + sinh bản tin nhắn |
 | `src/screens/Guide.jsx` + `guide.css` | **Màn hình 12 — Giới thiệu & Định nghĩa**: 4 tab (app này là gì · từ điển 44 chỉ số có tìm kiếm + cột Cạm bẫy · đọc từng màn · quy ước & giới hạn) |
 | `src/screens/Infra.jsx` tab *Tự soát dữ liệu* | 9 phép kiểm chất lượng dữ liệu, tính lại mỗi lần mở trang — sinh ra từ đợt audit 08/09/2026 |
 | `src/screens/Pnl.jsx` + `pnl.css` | **Màn hình 11 — Lãi lỗ**: thác nước GMV→lãi lỗ (SVG tự vẽ) · 6 tab: tiền rơi ở đâu · theo tháng · phí sàn · vì sao lãi đổi · ngành & SKU · cách tính |
@@ -105,6 +106,33 @@ ads vs doanh thu & LN · mỗi 100 đồng doanh thu đi đâu.
 Phễu và biểu đồ chi phí/ROAS **chỉ xuất hiện ở tab Tổng quan**; các tab cấp dưới
 chỉ có biểu đồ của đúng cấp đó (phân tán bong bóng · thanh ngang ghép đôi ·
 cột phân kỳ · treemap · thanh 100% phân bổ).
+
+### Màn hình 13 — Dòng tiền (2026-09-16)
+`src/screens/Cashflow.jsx` + `cashflow.css`, nhóm *Phân tích kinh doanh*.
+Dựng theo file Excel "Báo Cáo Dòng Tiền SLEEP EXPERT 2026" đang dùng hằng tuần.
+
+Cột = tuần ISO (thứ Hai → Chủ nhật, khớp cách đánh số trong Excel: tuần 38 = 14–20/09).
+Hàng = tiền mặt đầu kỳ · 4 khoản thu · 6 nhà cung cấp (sinh từ `master.suppliers`) ·
+6 khoản chi vận hành · các dòng tổng.
+
+**MỌI số tiền do người dùng nhập, app KHÔNG tự điền.** Lý do: công nợ theo Master Data
+là 1.379,6tr trong khi bản báo cáo tuần đang gửi ghi 954tr — tự điền là đưa số sai vào
+kế hoạch chi tiền. Số của app nằm ở panel *tham chiếu* bên dưới kèm cảnh báo lệch.
+
+App chỉ tự tính hai thứ: **tiền mặt đầu kỳ tuần sau = cuối kỳ tuần trước** (chỗ Excel
+hay sai vì phải kéo tay công thức) và các dòng tổng.
+
+Lưu trên Supabase dùng chung mọi máy: bảng `public.cashflow_week` + `cashflow_log`,
+ghi qua hàm `set_cashflow()` SECURITY DEFINER. Hàm chỉ **đè những tuần được gửi**,
+không xoá tuần khác — để hai người sửa hai tuần khác nhau không đạp lên nhau.
+Schema ở `scripts/shopee/schema_cashflow.sql`.
+
+Có nút **Chép bản tin** sinh đúng khuôn tin nhắn đang gửi nhóm (W38/W39 + công nợ +
+tồn kho), và xuất Excel 2 sheet.
+
+Kiểm chứng: nhập lại đúng số trong file Excel của anh Louis → 8/8 tuần khớp tuyệt đối
+(63.629.760 · 73.629.760 ×5 · −893.333.034), tổng chi 988,3tr khớp. Phát hiện ô cuối
+của Excel bị hỏng công thức nối: tuần 45 lấy lại 63.629.760 thay vì nối −893.333.034.
 
 ### Màn hình 12 — Giới thiệu & Định nghĩa (2026-09-11)
 `src/screens/Guide.jsx` + `guide.css`, nhóm *Tài liệu & Hệ thống*. Thay màn nháp cũ

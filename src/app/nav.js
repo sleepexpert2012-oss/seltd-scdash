@@ -11,6 +11,7 @@ export const NAV = [
       { id: 'matrix', label: 'Ma trận sản phẩm', icon: 'layers', screen: 4 },
       { id: 'marketing', label: 'Marketing Analysis', icon: 'trend', screen: 9 },
       { id: 'pnl', label: 'Lãi lỗ', icon: 'scale', screen: 11 },
+      { id: 'cashflow', label: 'Dòng tiền', icon: 'trend', screen: 13 },
     ],
   },
   {

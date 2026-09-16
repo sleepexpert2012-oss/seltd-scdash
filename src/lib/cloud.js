@@ -103,3 +103,52 @@ export async function syncPhantomBeforeBoot() {
     return { ok: false, error: String(e) }
   }
 }
+
+/* ============================================================
+   KẾ HOẠCH DÒNG TIỀN THEO TUẦN
+   Cùng cơ chế với tồn ảo: anon chỉ ĐỌC bảng, mọi ghi đi qua set_cashflow().
+   Khác một điểm quan trọng: hàm ghi chỉ ĐÈ những tuần được gửi, không xoá tuần
+   khác — để hai người sửa hai tuần khác nhau không đạp lên nhau.
+   ============================================================ */
+const CF_CACHE = 'seltd_cashflow'
+const CF_META = 'seltd_cashflow_meta'
+
+export const cashflowMeta = () => {
+  try { return JSON.parse(localStorage.getItem(CF_META) || 'null') } catch { return null }
+}
+export const cashflowCache = () => {
+  try { return JSON.parse(localStorage.getItem(CF_CACHE) || 'null') } catch { return null }
+}
+
+export async function fetchCashflow() {
+  const rows = await req('/cashflow_week?select=wk,data,updated_at,updated_by&order=wk')
+  const weeks = {}
+  let at = null, by = null
+  for (const r of rows || []) {
+    weeks[r.wk] = r.data || {}
+    if (!at || r.updated_at > at) { at = r.updated_at; by = r.updated_by }
+  }
+  try {
+    localStorage.setItem(CF_CACHE, JSON.stringify(weeks))
+    localStorage.setItem(CF_META, JSON.stringify({ at, by, syncedAt: new Date().toISOString() }))
+  } catch { /* bỏ qua */ }
+  return { weeks, at, by }
+}
+
+export async function pushCashflow(weeks, actor = deviceName()) {
+  const arr = Object.entries(weeks || {}).map(([wk, data]) => ({ wk, data }))
+  const res = await req('/rpc/set_cashflow', { method: 'POST', body: { weeks: arr, actor } })
+  const r = Array.isArray(res) ? res[0] : res
+  try {
+    const cur = cashflowCache() || {}
+    localStorage.setItem(CF_CACHE, JSON.stringify({ ...cur, ...weeks }))
+    localStorage.setItem(CF_META, JSON.stringify({
+      at: r?.saved_at || new Date().toISOString(), by: actor, syncedAt: new Date().toISOString(),
+    }))
+  } catch { /* bỏ qua */ }
+  return r
+}
+
+export async function fetchCashflowLog(limit = 30) {
+  return (await req(`/cashflow_log?select=id,at,actor,action,weeks&order=id.desc&limit=${limit}`)) || []
+}

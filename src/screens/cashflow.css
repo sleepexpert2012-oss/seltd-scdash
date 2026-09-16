@@ -1,0 +1,159 @@
+/* Màn Kế hoạch dòng tiền theo tuần */
+
+.cf-page .m2-panel > .m2-head {
+  display: block; border-bottom: 1px solid var(--line);
+  padding-bottom: 8px; margin-bottom: 12px; position: relative;
+}
+.cf-page .m2-panel > .m2-head h3 { font-size: 12.5px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.cf-page .m2-panel > .m2-head > span { display: block; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
+.cf-page .m2-panel > .m2-head .group-ctrl { position: absolute; top: 0; right: 0; }
+.cf-page .group-ctrl button {
+  height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-control);
+  background: #fff; color: var(--ink-2); font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.cf-page .group-ctrl button:hover { background: var(--surface-tint); color: var(--ink); }
+
+.cf-page > .m2-title { display: flex; align-items: flex-start; gap: 16px; }
+.cf-page > .m2-title > div:first-child { flex: 1 1 auto; min-width: 0; }
+.cf-health { flex: 0 0 auto; text-align: right; border-top: 3px solid var(--line); padding: 8px 0 0; min-width: 150px; }
+.cf-health span { display: block; font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.cf-health b { display: block; font-size: 17px; font-weight: 750; }
+.cf-health i { font-size: 10.5px; font-style: normal; color: var(--muted); }
+.cf-health.t-good { border-top-color: var(--good); } .cf-health.t-good b { color: var(--good); }
+.cf-health.t-bad { border-top-color: var(--bad); }  .cf-health.t-bad b { color: var(--bad); }
+
+/* ---- thanh điều khiển ---- */
+.cf-bar {
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-control); padding: 10px 12px; margin-bottom: 10px;
+}
+.cf-bar label { display: flex; flex-direction: column; gap: 3px; font-size: 9px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.cf-bar select, .cf-bar input {
+  height: 28px; border: 1px solid var(--line); border-radius: var(--r-control);
+  background: #fff; padding: 0 8px; font-size: 11.5px; color: var(--ink);
+}
+.cf-dev { width: 120px; }
+.cf-acts { display: flex; gap: 6px; margin-left: auto; }
+.cf-acts button {
+  height: 28px; padding: 0 11px; border-radius: var(--r-control);
+  font-size: 11px; font-weight: 650; cursor: pointer; border: 1px solid var(--line);
+}
+.cf-acts .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+.cf-acts .btn-primary.on { background: var(--amber); border-color: var(--amber); }
+.cf-acts .btn-primary:hover { background: var(--blue); border-color: var(--blue); }
+.cf-acts .btn-ghost { background: #fff; color: var(--ink-2); }
+.cf-acts .btn-ghost:hover { background: var(--surface-tint); color: var(--ink); }
+.cf-acts button:disabled { opacity: .55; cursor: default; }
+
+.cf-meta { margin: 0 0 10px; font-size: 10.5px; color: var(--muted); }
+.cf-dirty { color: #9A5B06; font-weight: 650; }
+.cf-msg {
+  border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--r-control);
+  padding: 9px 12px; margin-bottom: 10px; font-size: 11.5px; background: var(--surface);
+}
+.cf-msg.t-ok { border-left-color: var(--good); }
+.cf-msg.t-warn { border-left-color: var(--amber); }
+.cf-msg.t-bad { border-left-color: var(--bad); color: var(--bad); font-weight: 600; }
+
+.cf-kpis { grid-template-columns: repeat(5, 1fr); margin-bottom: 14px; }
+@media (max-width: 1240px) { .cf-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px) { .cf-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+.cf-warn {
+  border: 1px solid var(--line); border-left: 3px solid var(--bad);
+  border-radius: var(--r-control); background: var(--surface);
+  padding: 11px 14px; margin-bottom: 14px;
+}
+.cf-warn b { font-size: 12.5px; color: var(--bad); }
+.cf-warn p { margin: 5px 0 0; font-size: 11.5px; line-height: 1.55; color: var(--ink-2); }
+
+.cf-page .m2-panel { margin-bottom: 14px; }
+.cf-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .cf-row2 { grid-template-columns: 1fr; } }
+
+/* ---- bảng kế hoạch ---- */
+.cf-wrap { max-height: 72vh; }
+.cf-tb { width: 100%; border-collapse: collapse; font-size: 11.5px; min-width: 980px; }
+.cf-tb th {
+  position: sticky; top: 0; z-index: 2; background: var(--navy); color: #fff;
+  padding: 7px 8px; text-align: right; white-space: nowrap;
+  font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+}
+.cf-tb th i {
+  display: block; margin-top: 2px; font-style: italic; font-weight: 400;
+  font-size: 8.5px; letter-spacing: 0; text-transform: none; color: rgba(255, 255, 255, .62);
+}
+.cf-tb th.lbl, .cf-tb td.lbl { text-align: left; }
+/* Ghim cột tên: bảng rộng, cuộn ngang mà mất tên khoản mục là vô dụng */
+.cf-tb th.lbl, .cf-tb td.lbl { position: sticky; left: 0; z-index: 1; min-width: 270px; background: #fff; }
+.cf-tb th.lbl { z-index: 3; background: var(--navy); }
+.cf-tb td {
+  padding: 3px 6px; border-bottom: 1px solid #EDEFF6; color: var(--ink-2);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.cf-tb td.lbl { padding: 6px 10px; font-size: 11px; }
+.cf-tb td.lbl b { font-weight: 700; color: var(--ink); }
+.cf-tb .tot { background: var(--surface-tint); font-weight: 700; color: var(--ink); }
+.cf-tb th.tot { background: var(--blue); }
+
+.cf-tb tr.hdr td {
+  background: #FBE2CC; color: #7A4705; font-weight: 700; font-size: 10.5px;
+  padding: 5px 10px; text-transform: uppercase; letter-spacing: .05em;
+}
+.cf-tb tr.sub td { background: var(--surface-tint); font-weight: 650; color: var(--ink); }
+.cf-tb tr.sub td.lbl { background: var(--surface-tint); }
+.cf-tb tr.sum td { background: #E3E7F5; font-weight: 700; color: var(--ink); }
+.cf-tb tr.sum td.lbl { background: #E3E7F5; }
+.cf-tb tr.close td { background: var(--navy); color: #fff; font-weight: 750; font-size: 12px; }
+.cf-tb tr.close td.lbl { background: var(--navy); color: #fff; }
+.cf-tb tr.close td.neg { color: #FF9C93; }
+.cf-tb .auto { color: var(--ink-3); font-style: italic; }
+
+.cf-in {
+  width: 100%; min-width: 92px; height: 26px; text-align: right;
+  border: 1px solid transparent; border-radius: 4px; background: #fff;
+  padding: 0 6px; font-size: 11.5px; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.cf-in:hover { border-color: var(--line); }
+.cf-in:focus { outline: none; border-color: var(--blue2); background: #fff; box-shadow: 0 0 0 2px rgba(92, 103, 196, .14); }
+.cf-in::placeholder { color: #C9CDE0; }
+
+/* ---- tham chiếu ---- */
+.cf-ref, .cf-log { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.cf-ref th, .cf-log th {
+  text-align: left; font-size: 9px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);
+  padding: 0 8px 6px;
+}
+.cf-ref td, .cf-log td { padding: 6px 8px; border-bottom: 1px solid #EDEFF6; color: var(--ink-2); }
+.cf-ref .num, .cf-log .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cf-ref .neg { color: var(--bad); font-weight: 650; }
+.cf-ref tfoot td { border-top: 1.5px solid var(--line); border-bottom: 0; font-weight: 700; color: var(--ink); }
+.cf-empty { text-align: center; color: var(--muted); padding: 14px 0; }
+
+.cf-kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cf-kv > div { border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); padding: 9px 11px; }
+.cf-kv span { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 2px; }
+.cf-kv b { font-size: 15px; font-weight: 750; color: var(--ink); }
+.cf-kv .bad b { color: var(--bad); }
+.cf-kv .good b { color: var(--good); }
+
+.cf-note { margin: 10px 0 0; font-size: 10.5px; line-height: 1.55; color: var(--muted);
+  border-top: 1px dashed var(--line); padding-top: 8px; }
+.cf-note.warn { color: #9A5B06; border-top-color: var(--amber); }
+
+.cf-msgbox {
+  margin: 0; padding: 12px 14px; background: #1E3A2F; color: #E8F3EC;
+  border-radius: var(--r-control); font-size: 11.5px; line-height: 1.6;
+  white-space: pre-wrap; font-family: inherit; max-height: 420px; overflow: auto;
+}
+
+@media print {
+  .cf-bar, .cf-acts, .cf-page .group-ctrl { display: none !important; }
+  .cf-wrap { max-height: none !important; overflow: visible !important; }
+  .cf-tb { min-width: 0 !important; font-size: 8.5px; }
+  .cf-page .m2-panel { break-inside: avoid-page; }
+}
