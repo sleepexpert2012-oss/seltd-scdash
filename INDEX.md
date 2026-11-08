@@ -107,6 +107,21 @@ Phễu và biểu đồ chi phí/ROAS **chỉ xuất hiện ở tab Tổng quan*
 chỉ có biểu đồ của đúng cấp đó (phân tán bong bóng · thanh ngang ghép đôi ·
 cột phân kỳ · treemap · thanh 100% phân bổ).
 
+### Tab "Báo cáo lãnh đạo" trong màn Dòng tiền (2026-11-08)
+Xếp theo thứ tự sếp hỏi, không theo thứ tự dữ liệu:
+1. **Kết luận một dòng** — quỹ đủ đến tuần nào, thiếu bao nhiêu, cần bù tối thiểu bao nhiêu
+2. **Vị thế tiền ròng** — tiền mặt + khách còn nợ − nợ NCC; hàng tồn để **dòng riêng**
+   vì tồn chỉ thành tiền khi bán được, cộng vào khi nói chuyện thanh toán là tự lừa mình
+3. **Ba rủi ro** — app tự chấm theo số đang có (âm quỹ · nợ quá hạn · nợ NCC so với tồn)
+4. **Ba đòn bẩy kèm tác động bằng số** — mô phỏng lại đúng 8 tuần đó, mỗi cột đổi **một**
+   biến: đòi hết nợ quá hạn · giãn nợ NCC 2 tuần · bù vốn. Không chỉ báo "thiếu bao nhiêu"
+   mà trả lời "làm gì thì hết thiếu"
+5. **Số liệu kèm theo** + nút in một trang
+
+Khi kỳ không âm quỹ thì ba cột đòn bẩy hiện "Chưa cần" thay vì "Hết âm quỹ" — không thì
+câu kết luận vô nghĩa. Khi kỳ chưa nhập kế hoạch thì có dải nói rõ báo cáo mới chỉ phản
+ánh phần app tự tính.
+
 ### Công nợ PHẢI THU nối vào kế hoạch dòng tiền (2026-11-08)
 Nguồn: file "Kế hoạch nhận hàng" của từng đại lý (`data-goc/2026-10-27_KeHoach-Nhan-Hang-KNTH.xlsx`),
 nạp bằng `scripts/shopee/load_receivable.py`.

@@ -105,6 +105,7 @@ export default function Cashflow() {
   const [log, setLog] = useState(null)
   const [dev, setDev] = useState(deviceName())
   const [showRef, setShowRef] = useState(true)
+  const [tab, setTab] = useState('plan')
 
   /* nạp từ đám mây khi mở màn */
   useEffect(() => {
@@ -336,6 +337,53 @@ export default function Cashflow() {
     })
   }
 
+  /* ---------- Báo cáo cho lãnh đạo ----------
+     Mô phỏng lại 8 tuần dưới 3 kịch bản để trả lời "làm gì thì hết thiếu",
+     thay vì chỉ báo con số thiếu. Dùng ĐÚNG số thu/chi của bảng kế hoạch,
+     chỉ đổi một biến mỗi lần — đổi nhiều biến cùng lúc thì không quy được
+     kết quả về đòn bẩy nào. */
+  const bc = useMemo(() => {
+    const mo = (f) => {
+      let carry = null, day = 0, tuanAm = null
+      for (const k of d.weeks) {
+        const { thu, chi } = f(k)
+        const open = carry == null ? k.open : carry
+        const close = open + thu - chi
+        if (close < 0 && !tuanAm) tuanAm = k
+        day = Math.min(day, close)
+        carry = close
+      }
+      return { thieu: day < 0 ? -day : 0, tuanAm, cuoi: carry }
+    }
+    const goc = mo(k => ({ thu: k.thu, chi: k.chi }))
+
+    /* Đòn bẩy 1 — đòi được toàn bộ nợ quá hạn, tiền về ngay tuần đầu */
+    const l1 = mo(k => ({
+      thu: k.thu + (k.id === d.weeks[0]?.id ? ar.quaHanTien : 0), chi: k.chi,
+    }))
+    /* Đòn bẩy 2 — giãn khoản chi nhà cung cấp 2 tuần */
+    const dayChi = {}
+    d.weeks.forEach((k, i) => { dayChi[i] = k.chiNcc })
+    const l2 = mo((k) => {
+      const i = d.weeks.indexOf(k)
+      const vao = i >= 2 ? (dayChi[i - 2] || 0) : 0
+      return { thu: k.thu, chi: k.chiKhac + vao }
+    })
+    /* Đòn bẩy 3 — bù vốn: cần đúng bằng mức thiếu sâu nhất */
+    const canBu = goc.thieu
+
+    return {
+      goc, l1, l2, canBu,
+      tienMat: d.tong.open,
+      phaiThu: ar.conPhaiThu,
+      phaiTra: ref.tongNo,
+      tonKho: ref.tonValue,
+      rong: d.tong.open + ar.conPhaiThu - ref.tongNo,
+      rongCaTon: d.tong.open + ar.conPhaiThu + ref.tonValue - ref.tongNo,
+      chiLonNhat: [...d.weeks].sort((a, b) => b.chi - a.chi)[0],
+    }
+  }, [d, ar, ref])
+
   const KPI = [
     { k: 'Tiền mặt đầu kỳ', v: trieu(d.tong.open, 1), u: 'tr',
       sub: `tuần ${d.weeks[0]?.w} · ${d.weeks[0] ? fmtD(d.weeks[0].mon) : ''}` },
@@ -399,6 +447,16 @@ export default function Cashflow() {
         </div>
       </div>
 
+      <div className="mk-tabbar">
+        <div className="mk-tabs">
+          {[['plan', '▦', 'Kế hoạch theo tuần'], ['report', '◈', 'Báo cáo lãnh đạo']].map(([id, ic, lb]) => (
+            <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
+              <span className="ic" aria-hidden>{ic}</span>{lb}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {meta?.at && (
         <p className="cf-meta">
           Lưu gần nhất <b>{new Date(meta.at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</b>
@@ -426,6 +484,9 @@ export default function Cashflow() {
         </section>
       )}
 
+      {tab === 'report' && <BaoCao d={d} bc={bc} ar={ar} ref0={ref} banTin={banTin} setMsg={setMsg} />}
+
+      {tab === 'plan' && <>
       <div className="mk-kpis cf-kpis">
         {KPI.map(x => (
           <div key={x.k} className={`mk-kpi ${x.tone || ''}`}>
@@ -732,6 +793,146 @@ export default function Cashflow() {
                 .then(() => setMsg({ t: 'ok', s: 'Đã chép bản tin vào bộ nhớ tạm.' }))
                 .catch(() => setMsg({ t: 'warn', s: 'Trình duyệt chặn chép tự động — bôi đen rồi copy tay.' }))
             }}>⧉ Chép bản tin</button>
+          </div>
+        </div>
+        <pre className="cf-msgbox">{banTin}</pre>
+      </section>
+      </>}
+    </div>
+  )
+}
+
+/* ================= BÁO CÁO CHO LÃNH ĐẠO =================
+   Xếp theo thứ tự sếp hỏi, không theo thứ tự dữ liệu: kết luận trước, vị thế,
+   đường quỹ, rủi ro, rồi mới tới việc phải làm. */
+function BaoCao({ d, bc, ar, ref0, banTin, setMsg }) {
+  const T = n => `${num(Math.round(n / 1e6))} tr`
+  const am = bc.goc.tuanAm
+  return (
+    <div className="bc">
+      <div className={`bc-ket ${am ? 'bad' : 'good'}`}>
+        <span className="bc-lbl">Kết luận</span>
+        {am ? (
+          <h3>
+            Quỹ đủ đến tuần {am.w ? am.w - 1 : '—'}, thiếu <b>{T(bc.goc.thieu)}</b> từ
+            tuần {am.w} ({fmtD(am.mon)}–{fmtD(am.sun)})
+          </h3>
+        ) : (
+          <h3>Quỹ dương suốt {d.weeks.length} tuần tới, thấp nhất còn <b>{T(bc.goc.cuoi)}</b></h3>
+        )}
+        <p>
+          Tiền mặt {T(bc.tienMat)} · thu dự kiến {T(d.tong.thu)} · chi dự kiến {T(d.tong.chi)}
+          {am && <> · cần bù tối thiểu <b>{T(bc.canBu)}</b> trước tuần {am.w}</>}
+        </p>
+      </div>
+
+      {d.tong.chi === 0 && d.tong.open === 0 && (
+        <div className="cf-msg t-warn">
+          Kỳ đang xem (<b>tuần {d.weeks[0]?.w}–{d.weeks[d.weeks.length - 1]?.w}</b>) chưa nhập
+          tiền mặt đầu kỳ và khoản chi nào, nên báo cáo mới chỉ phản ánh phần app tự tính
+          (thu nợ khách). Sang tab <b>Kế hoạch theo tuần</b> nhập số rồi quay lại.
+        </div>
+      )}
+
+      <div className="bc-grid">
+        <section className="m2-panel">
+          <div className="m2-head"><h3>Vị thế tiền ròng</h3>
+            <span>Tiền đang có cộng tiền sắp về, trừ tiền phải trả</span></div>
+          <table className="bc-tb">
+            <tbody>
+              <tr><td>Tiền mặt hiện có</td><td className="num">{T(bc.tienMat)}</td></tr>
+              <tr><td>+ Khách còn nợ</td><td className="num pos">{T(bc.phaiThu)}</td></tr>
+              <tr><td>− Nợ nhà cung cấp</td><td className="num neg">−{T(bc.phaiTra)}</td></tr>
+              <tr className="sum"><td>= Vị thế ròng</td>
+                <td className={`num ${bc.rong < 0 ? 'neg' : 'pos'}`}>{T(bc.rong)}</td></tr>
+              <tr><td>+ Hàng tồn kho (giá vốn)</td><td className="num">{T(bc.tonKho)}</td></tr>
+              <tr className="sum"><td>= Gồm cả hàng trong kho</td>
+                <td className={`num ${bc.rongCaTon < 0 ? 'neg' : 'pos'}`}>{T(bc.rongCaTon)}</td></tr>
+            </tbody>
+          </table>
+          <p className="cf-note">
+            Hàng tồn chỉ thành tiền khi bán được — để dòng cuối riêng, đừng cộng vào vị thế
+            ròng khi nói chuyện thanh toán.
+          </p>
+        </section>
+
+        <section className="m2-panel">
+          <div className="m2-head"><h3>Ba rủi ro lớn nhất</h3>
+            <span>App tự chấm theo số đang có, không phải nhận định tay</span></div>
+          <ol className="bc-rr">
+            <li className={am ? 'bad' : 'ok'}>
+              <b>{am ? `Âm quỹ tuần ${am.w}` : 'Không có tuần âm quỹ'}</b>
+              <span>{am
+                ? `Thiếu ${T(bc.goc.thieu)} ở mức sâu nhất. Nguyên nhân chính: tuần ${bc.chiLonNhat?.w} chi ${T(bc.chiLonNhat?.chi || 0)}.`
+                : `Mức thấp nhất trong kỳ còn ${T(bc.goc.cuoi)}.`}</span>
+            </li>
+            <li className={ar.quaHanTien > 0 ? 'bad' : 'ok'}>
+              <b>{ar.quaHanTien > 0 ? `Khách nợ quá hạn ${T(ar.quaHanTien)}` : 'Không có nợ quá hạn'}</b>
+              <span>{ar.quaHanTien > 0
+                ? `${ar.quaHan.length} phiếu đã qua hạn thu. Kế hoạch đang tính là sẽ thu được — nếu không thì quỹ xấu thêm đúng bằng con số này.`
+                : 'Toàn bộ khoản phải thu còn trong hạn.'}</span>
+            </li>
+            <li className={bc.phaiTra > bc.tonKho ? 'bad' : 'ok'}>
+              <b>Nợ nhà cung cấp {T(bc.phaiTra)} so với tồn kho {T(bc.tonKho)}</b>
+              <span>{bc.phaiTra > bc.tonKho
+                ? `Hàng trong kho không đủ bù nợ, thiếu ${T(bc.phaiTra - bc.tonKho)} — bán hết tồn vẫn còn nợ.`
+                : `Hàng trong kho còn dư ${T(bc.tonKho - bc.phaiTra)} so với nợ.`}</span>
+            </li>
+          </ol>
+        </section>
+      </div>
+
+      <section className="m2-panel">
+        <div className="m2-head">
+          <h3>{am ? 'Ba đòn bẩy — làm gì thì hết thiếu' : 'Ba đòn bẩy — chưa cần dùng'}</h3>
+          <span>{am
+            ? 'Mỗi cột là mô phỏng lại đúng 8 tuần đó, chỉ đổi MỘT biến'
+            : 'Kỳ này quỹ không âm nên chưa phải dùng đòn bẩy nào — để sẵn ở đây, khi kế hoạch chi tăng lên thì mỗi cột tự tính lại'}</span>
+        </div>
+        <div className="bc-don">
+          {[
+            { t: 'Đòi hết nợ quá hạn', v: ar.quaHanTien,
+              mo: ar.quaHanTien > 0
+                ? `Thu ${T(ar.quaHanTien)} ngay tuần ${d.weeks[0]?.w}`
+                : 'Không còn khoản nào quá hạn', kq: bc.l1,
+              lam: 'Gọi khách chốt lịch trả cho các phiếu đã qua hạn.' },
+            { t: 'Giãn nợ nhà cung cấp 2 tuần', v: null,
+              mo: 'Dời toàn bộ khoản chi NCC chậm 2 tuần', kq: bc.l2,
+              lam: 'Đàm phán giãn hạn với NCC có khoản chi lớn nhất.' },
+            { t: 'Bù vốn chủ sở hữu', v: bc.canBu,
+              mo: am ? `Nộp ${T(bc.canBu)} trước tuần ${am.w}` : 'Không phải bù đồng nào trong kỳ này',
+              kq: { thieu: 0, tuanAm: null }, lam: 'Phương án cuối, dùng khi hai cách trên không đủ.' },
+          ].map(x => (
+            <div key={x.t} className={`bc-don-i ${x.kq.thieu === 0 ? 'ok' : 'part'}`}>
+              <b>{x.t}</b>
+              <span className="mo">{x.mo}</span>
+              <div className="kq">
+                {!am
+                  ? <span className="dim">Chưa cần</span>
+                  : x.kq.thieu === 0
+                    ? <span className="good">Hết âm quỹ</span>
+                    : <span className="warn">Vẫn thiếu {T(x.kq.thieu)}{x.kq.tuanAm ? ` ở tuần ${x.kq.tuanAm.w}` : ''}</span>}
+              </div>
+              <span className="lam">{x.lam}</span>
+            </div>
+          ))}
+        </div>
+        <p className="cf-note">
+          Mô phỏng chạy trên đúng số anh đã nhập ở tab Kế hoạch. Đổi số bên đó thì ba cột này
+          đổi theo. Mỗi cột chỉ đổi một biến — làm cùng lúc thì kết quả tốt hơn từng cột.
+        </p>
+      </section>
+
+      <section className="m2-panel">
+        <div className="m2-head"><h3>Số liệu kèm theo</h3>
+          <span>Dán vào email hoặc tin nhắn báo cáo</span>
+          <div className="group-ctrl">
+            <button onClick={() => {
+              navigator.clipboard?.writeText(banTin)
+                .then(() => setMsg({ t: 'ok', s: 'Đã chép bản tin.' }))
+                .catch(() => setMsg({ t: 'warn', s: 'Trình duyệt chặn chép — bôi đen rồi copy tay.' }))
+            }}>⧉ Chép</button>
+            <button onClick={() => window.print()}>🖨 In báo cáo</button>
           </div>
         </div>
         <pre className="cf-msgbox">{banTin}</pre>
