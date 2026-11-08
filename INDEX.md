@@ -107,6 +107,30 @@ Phễu và biểu đồ chi phí/ROAS **chỉ xuất hiện ở tab Tổng quan*
 chỉ có biểu đồ của đúng cấp đó (phân tán bong bóng · thanh ngang ghép đôi ·
 cột phân kỳ · treemap · thanh 100% phân bổ).
 
+### Công nợ PHẢI THU nối vào kế hoạch dòng tiền (2026-11-08)
+Nguồn: file "Kế hoạch nhận hàng" của từng đại lý (`data-goc/2026-10-27_KeHoach-Nhan-Hang-KNTH.xlsx`),
+nạp bằng `scripts/shopee/load_receivable.py`.
+
+Bảng: `public.ar_customer` (đại lý + số ngày công nợ) · `ar_delivery` (phiếu xuất đã giao) ·
+`ar_payment` (tiền đã thu) · `ar_plan` (kế hoạch giao tiếp theo) · `ar_meta`.
+
+**Hạn thu = ngày xuất kho + số ngày công nợ.** Khoản đến hạn tuần nào rơi vào đúng tuần đó
+ở dòng **Thu nợ khách hàng** trong bảng dòng tiền — dòng này app tự tính, không nhập tay.
+
+Quy tắc đã chốt:
+- Phiếu xuất **0 đồng** (hàng mẫu, chiết khấu 100%) không tạo khoản phải thu.
+- Tiền khách trả trừ vào khoản có **hạn cũ nhất trước** — đòi nợ bao giờ cũng thu khoản cũ nhất.
+- Kế hoạch giao chưa xuất kho cũng thành phải thu **dự kiến**, hạn tính từ cuối tuần giao.
+- Khoản đến hạn **trước** tuần đầu của bảng không xuất hiện ở dòng Thu nợ → nêu riêng trong
+  dải cảnh báo, nếu không người đọc tưởng đã tính hết.
+
+KNTH chốt 27/10/2026: đã giao 229,2tr · đã thu 20tr · còn phải thu 209,2tr · quá hạn 128,8tr ·
+kế hoạch giao tiếp 186,4tr.
+
+Bẫy khi viết hàm Postgres: tham số và biến trùng tên cột (`cust`, `code`) làm Postgres báo
+*column reference is ambiguous* — đặt tiền tố `p_`/`v_`. Tiêu đề tuần trong file có dạng
+`03–09/11` lược tháng ở ngày đầu, phải lấy theo tháng ngày cuối nếu không chỉ đọc được 1/4 tuần.
+
 ### Đổi nguồn TỒN KHO và CÔNG NỢ (2026-11-08)
 **Tồn kho không lấy từ Shopee nữa.** API trả sai: app hiện 949 unit trong khi kiểm kho
 thực tế 827. Cách tính mới anh Louis chốt:

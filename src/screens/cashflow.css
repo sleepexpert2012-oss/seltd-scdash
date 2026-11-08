@@ -157,3 +157,25 @@
   .cf-tb { min-width: 0 !important; font-size: 8.5px; }
   .cf-page .m2-panel { break-inside: avoid-page; }
 }
+
+/* Dòng app tự tính trong bảng kế hoạch */
+.cf-tb tr.auto-row td { background: #F2F6FB; }
+.cf-tb tr.auto-row td.lbl { background: #F2F6FB; }
+.cf-tb .auto-tag {
+  display: block; margin-top: 1px; font-style: normal;
+  font-size: 9px; color: var(--blue2); font-weight: 600;
+}
+.cf-tb td .auto { color: var(--blue); font-weight: 650; cursor: help; }
+.cf-tb td .dim { color: var(--ink-3); }
+
+.cf-kv4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 760px) { .cf-kv4 { grid-template-columns: repeat(2, 1fr); } }
+
+.ar-tag {
+  display: inline-block; padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: 9.5px; font-weight: 650; white-space: nowrap;
+}
+.ar-tag.done { background: #E4F3EA; color: var(--good); }
+.ar-tag.late { background: #FBEAE8; color: var(--bad); }
+.ar-tag.ok   { background: var(--surface-soft); color: var(--ink-2); }
+.ar-tag.plan { background: #EDEFF9; color: var(--blue2); }

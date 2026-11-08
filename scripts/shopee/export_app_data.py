@@ -56,6 +56,12 @@ def main():
         dmeta = rd(cur, "select as_of::text, updated_at::text, updated_by, total::bigint "
                         "from public.supplier_debt_meta where id = 1")
         drows = rd(cur, "select code, name, debt::bigint from public.supplier_debt order by debt desc")
+        # Công nợ PHẢI THU từ đại lý: phiếu xuất đã giao + đã thu + kế hoạch giao tiếp.
+        ar_c = rd(cur, "select code, name, term_days from public.ar_customer order by code")
+        ar_d = rd(cur, "select pxk, cust, d::text, amount::bigint, note from public.ar_delivery order by d")
+        ar_p = rd(cur, "select id, cust, d::text, amount::bigint, note from public.ar_payment order by d, id")
+        ar_pl = rd(cur, "select id, cust, d_from::text, d_to::text, amount::bigint from public.ar_plan order by d_from")
+        ar_m = rd(cur, "select as_of::text, updated_at::text, updated_by from public.ar_meta where id = 1")
         # --- Marketing Analysis ---
         mk_month = rd(cur, """
             select a.ym,
@@ -226,6 +232,13 @@ def main():
                               'các khoản đã thanh toán — dùng số khai tay để lập kế hoạch chi.')},
             'rows': drows}
 
+    receivable = {
+        'meta': {**(ar_m[0] if ar_m else {}), 'exportedAt': now,
+                 'note': ('Công nợ phải thu từ đại lý. Hạn thu = ngày giao + số ngày công nợ '
+                          'của đại lý. Khoản đến hạn tuần nào rơi vào tuần đó ở màn Dòng tiền. '
+                          'Phiếu xuất 0 đồng (hàng mẫu, chiết khấu 100%) không tạo khoản phải thu.')},
+        'customers': ar_c, 'deliveries': ar_d, 'payments': ar_p, 'plans': ar_pl}
+
     # các chỉ số tỷ lệ phải giữ đủ số lẻ, làm tròn 2 chữ số sẽ mất sạch (CTR 3,4% -> 0,03)
     RATE = {'ctr', 'cr', 'net_rate', 'tacos', 'ads_share', 'gm', 'fee_rate', 'acos'}
     def clean(rows):
@@ -284,7 +297,7 @@ def main():
              'master': {'skus': len(json.load(open(os.path.join(OUT, 'master.json')))['skus'])}}
 
     for name, obj in (('sales', sales), ('sales_daily', daily), ('platform', plat),
-                      ('stock', stock), ('stock_baseline', baseline), ('supplier_debt', debt),
+                      ('stock', stock), ('stock_baseline', baseline), ('supplier_debt', debt), ('receivable', receivable),
                       ('marketing', mkt), ('infra', infra)):
         p = os.path.join(OUT, name + '.json')
         with open(p, 'w') as f:

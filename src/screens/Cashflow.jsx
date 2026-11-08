@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import master from '../data/master'
 import debtFile from '../data/supplier_debt.json'
+import arFile from '../data/receivable.json'
 import { SKU_MAP, BASE_SUMMARY, STOCK_BY_SKU } from '../lib/metrics'
 import { trieu, num } from '../lib/format'
 import {
@@ -116,6 +117,48 @@ export default function Cashflow() {
 
   const NCC = useMemo(() => master.suppliers.map(s => [s.code, s.name]), [])
 
+  /* ---------- Công nợ phải thu từ đại lý ----------
+     Hạn thu = ngày giao + số ngày công nợ. Tiền đến hạn tuần nào rơi vào tuần
+     đó. Tiền đã thu trừ dần theo thứ tự hạn CŨ TRƯỚC (đòi nợ bao giờ cũng thu
+     khoản cũ nhất trước), nên khoản nào còn lại mới là khoản thực sự phải đòi. */
+  const ar = useMemo(() => {
+    const term = Object.fromEntries((arFile.customers || []).map(c => [c.code, c.term_days || 30]))
+    const tenKH = Object.fromEntries((arFile.customers || []).map(c => [c.code, c.name]))
+    const addDays = (iso, n) => {
+      const t = new Date(iso + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n)
+      return t.toISOString().slice(0, 10)
+    }
+    const khoan = (arFile.deliveries || []).map(x => ({
+      ...x, han: addDays(x.d, term[x.cust] ?? 30), conLai: x.amount, loai: 'giao',
+    })).sort((a, b) => a.han.localeCompare(b.han))
+
+    /* Kế hoạch giao tiếp theo -> phải thu DỰ KIẾN, hạn = cuối tuần giao + term */
+    const duKien = (arFile.plans || []).map(x => ({
+      pxk: `KH ${x.d_from.slice(8)}/${x.d_from.slice(5, 7)}`, cust: x.cust, d: x.d_to,
+      amount: x.amount, han: addDays(x.d_to, term[x.cust] ?? 30), conLai: x.amount, loai: 'kehoach',
+    })).sort((a, b) => a.han.localeCompare(b.han))
+
+    let daThu = (arFile.payments || []).reduce((a, p) => a + (p.amount || 0), 0)
+    const thuTong = daThu
+    for (const k of khoan) {
+      if (daThu <= 0) break
+      const tru = Math.min(daThu, k.conLai)
+      k.conLai -= tru; daThu -= tru
+    }
+    const conPhaiThu = khoan.reduce((a, k) => a + k.conLai, 0)
+    const homNay = new Date().toISOString().slice(0, 10)
+    const quaHan = khoan.filter(k => k.conLai > 0 && k.han < homNay)
+    return {
+      tenKH, khoan, duKien, thuTong, conPhaiThu,
+      daGiao: khoan.reduce((a, k) => a + k.amount, 0),
+      keHoach: duKien.reduce((a, k) => a + k.amount, 0),
+      quaHan, quaHanTien: quaHan.reduce((a, k) => a + k.conLai, 0),
+      asOf: arFile.meta?.as_of || null,
+      /* Khoản còn lại theo tuần đến hạn — đây là thứ nối vào bảng dòng tiền */
+      theoHan: [...khoan, ...duKien].filter(k => k.conLai > 0),
+    }
+  }, [])
+
   /* ---------- tính toán ---------- */
   const d = useMemo(() => {
     const weeks = []
@@ -129,7 +172,15 @@ export default function Cashflow() {
     }
     let carry = null
     for (const k of weeks) {
-      const thu = THU.reduce((a, [id]) => a + (k.raw.thu?.[id] || 0), 0)
+      /* Thu nợ khách hàng KHÔNG nhập tay: tự lấy các khoản đến hạn trong tuần.
+         Tách riêng `thuNo` để bảng chỉ rõ phần nào do app tính. */
+      const t0 = k.mon.toISOString().slice(0, 10)
+      const t1 = k.sun.toISOString().slice(0, 10)
+      const trongTuan = ar.theoHan.filter(x => x.han >= t0 && x.han <= t1)
+      const thuNo = trongTuan.reduce((a, x) => a + x.conLai, 0)
+      k.thuNoChiTiet = trongTuan
+      const thu = THU.reduce((a, [id]) => a + (k.raw.thu?.[id] || 0), 0) + thuNo
+      k.thuNo = thuNo
       const chiNcc = NCC.reduce((a, [code]) => a + (k.raw.chi?.[code] || 0), 0)
       const chiKhac = CHI_KHAC.reduce((a, [id]) => a + (k.raw.chi?.[id] || 0), 0)
       const chi = chiNcc + chiKhac
@@ -138,12 +189,18 @@ export default function Cashflow() {
       const open = carry == null ? (k.raw.open || 0) : carry
       const truocChi = open + thu
       const close = truocChi - chi
-      Object.assign(k, { thu, chi, chiNcc, chiKhac, open, truocChi, close, tuNhap: carry == null })
+      Object.assign(k, { thu, thuNo, chi, chiNcc, chiKhac, open, truocChi, close, tuNhap: carry == null })
       carry = close
     }
+    /* Khoản đến hạn TRƯỚC tuần đầu tiên đang hiển thị sẽ không xuất hiện ở bảng
+       — phải nêu riêng, nếu không người đọc tưởng đã tính hết. */
+    const dauKy = weeks[0] ? weeks[0].mon.toISOString().slice(0, 10) : null
+    const noNgoaiKy = dauKy
+      ? ar.theoHan.filter(x => x.han < dauKy).reduce((a, x) => a + x.conLai, 0)
+      : 0
     const am = weeks.find(k => k.close < 0)
     return {
-      weeks,
+      weeks, noNgoaiKy,
       tong: {
         thu: weeks.reduce((a, k) => a + k.thu, 0),
         chi: weeks.reduce((a, k) => a + k.chi, 0),
@@ -155,7 +212,7 @@ export default function Cashflow() {
         label: `T${k.w}`, thu: k.thu / 1e6, chi: -k.chi / 1e6, close: k.close / 1e6,
       })),
     }
-  }, [data, from, nWeeks, NCC])
+  }, [data, from, nWeeks, NCC, ar])
 
   /* Công nợ: lấy số KHAI TAY từ phần mềm kế toán (src/data/supplier_debt.json).
      Số app tự cộng từ PO trong Master Data ra 1.379,6tr trong khi số thật là
@@ -249,8 +306,11 @@ export default function Cashflow() {
     L.push('', `I. CÔNG NỢ : ${tr(ref.tongNo)}`, '')
     ref.rows.forEach((r, i) => L.push(`${i + 1}. ${r.name}: ${tr(r.no)}`))
     L.push('', `II. HÀNG TỒN KHO: ${tr(ref.tonValue)} ${ref.chenh < 0 ? 'âm' : 'dư'} ${tr(Math.abs(ref.chenh))}/ công nợ ncc`)
+    L.push('', `III. CÔNG NỢ PHẢI THU: ${tr(ar.conPhaiThu)}`)
+    if (ar.quaHanTien > 0) L.push(`   - Quá hạn: ${tr(ar.quaHanTien)} (${ar.quaHan.length} phiếu)`)
+    if (ar.keHoach > 0) L.push(`   - Kế hoạch giao tiếp: ${tr(ar.keHoach)}`)
     return L.join('\n')
-  }, [d, ref, NCC])
+  }, [d, ref, NCC, ar])
 
   function xls() {
     const row = (ten, lay) => ({
@@ -434,6 +494,22 @@ export default function Cashflow() {
                   <td className="num tot">{fmtVnd(d.weeks.reduce((a, k) => a + (k.raw.thu?.[id] || 0), 0)) || '—'}</td>
                 </tr>
               ))}
+              <tr className="auto-row">
+                <td className="lbl">
+                  Thu nợ khách hàng (đến hạn)
+                  <i className="auto-tag">app tự tính từ phiếu xuất + hạn công nợ</i>
+                </td>
+                {d.weeks.map(k => (
+                  <td key={k.id} className="num">
+                    {k.thuNo
+                      ? <span className="auto" title={k.thuNoChiTiet.map(x => `${x.pxk}: ${fmtVnd(x.conLai)}`).join('\n')}>
+                          {fmtVnd(k.thuNo)}
+                        </span>
+                      : <span className="dim">—</span>}
+                  </td>
+                ))}
+                <td className="num tot">{fmtVnd(d.weeks.reduce((a, k) => a + k.thuNo, 0)) || '—'}</td>
+              </tr>
               <tr className="sum">
                 <td className="lbl">Tổng thu</td>
                 {d.weeks.map(k => <td key={k.id} className="num">{fmtVnd(k.thu) || '—'}</td>)}
@@ -574,6 +650,77 @@ export default function Cashflow() {
           </p>
         </section>
       </div>
+
+      <section className="m2-panel">
+        <div className="m2-head">
+          <h3>Công nợ khách hàng phải thu</h3>
+          <span>
+            Hạn thu = ngày xuất kho + số ngày công nợ của đại lý. Khoản đến hạn tuần nào đã
+            được cộng thẳng vào dòng <b>Thu nợ khách hàng</b> ở bảng trên — không phải nhập tay.
+          </span>
+        </div>
+        <div className="cf-kv cf-kv4">
+          <div><span>Đã giao</span><b>{trieu(ar.daGiao, 1)} tr</b></div>
+          <div className="good"><span>Đã thu</span><b>{trieu(ar.thuTong, 1)} tr</b></div>
+          <div><span>Còn phải thu</span><b>{trieu(ar.conPhaiThu, 1)} tr</b></div>
+          <div className={ar.quaHanTien > 0 ? 'bad' : ''}>
+            <span>Quá hạn</span><b>{trieu(ar.quaHanTien, 1)} tr</b>
+          </div>
+        </div>
+        {ar.quaHanTien > 0 && (
+          <div className="cf-warn" style={{ margin: '12px 0 0' }}>
+            <b>⚠ {trieu(ar.quaHanTien, 1)} triệu đã quá hạn thu ({ar.quaHan.length} phiếu)</b>
+            <p>
+              Tiền này đáng ra đã phải về.
+              {d.noNgoaiKy > 0
+                ? <> Trong đó <b>{trieu(d.noNgoaiKy, 1)} triệu</b> đến hạn <b>trước</b> tuần đầu
+                    của bảng nên <b>không</b> xuất hiện ở dòng Thu nợ — phần còn lại đã nằm trong
+                    tuần tương ứng.</>
+                : <> Toàn bộ đã rơi vào các tuần tương ứng trong bảng trên.</>}
+              {' '}Khoản quá hạn vẫn được tính là sẽ thu được — nếu khách chưa chắc trả thì đừng
+              dựa vào nó để lên lịch chi.
+            </p>
+          </div>
+        )}
+        <div className="m2-tablewrap" style={{ marginTop: 12 }}>
+          <table className="cf-ref">
+            <thead>
+              <tr><th>Phiếu / kế hoạch</th><th>Khách</th><th>Ngày giao</th><th>Hạn thu</th>
+                <th className="num">Giá trị</th><th className="num">Còn phải thu</th><th>Tình trạng</th></tr>
+            </thead>
+            <tbody>
+              {[...ar.khoan, ...ar.duKien].map(k => {
+                const homNay = new Date().toISOString().slice(0, 10)
+                const qh = k.conLai > 0 && k.han < homNay
+                const xong = k.conLai === 0
+                return (
+                  <tr key={k.pxk + k.han}>
+                    <td className="sm">{k.pxk}</td>
+                    <td className="sm">{ar.tenKH[k.cust] || k.cust}</td>
+                    <td className="sm">{k.d.slice(8)}/{k.d.slice(5, 7)}</td>
+                    <td className="sm">{k.han.slice(8)}/{k.han.slice(5, 7)}</td>
+                    <td className="num">{trieu(k.amount, 1)}</td>
+                    <td className={`num${qh ? ' neg' : ''}`}>{k.conLai ? trieu(k.conLai, 1) : '—'}</td>
+                    <td className="sm">
+                      {xong ? <span className="ar-tag done">đã thu</span>
+                        : k.loai === 'kehoach' ? <span className="ar-tag plan">chưa giao</span>
+                          : qh ? <span className="ar-tag late">quá hạn</span>
+                            : <span className="ar-tag ok">chưa tới hạn</span>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="cf-note">
+          Tiền khách đã trả được trừ vào khoản có <b>hạn cũ nhất trước</b> — đòi nợ bao giờ cũng
+          thu khoản cũ nhất, nên phần còn lại mới đúng là phần thực sự phải đòi.
+          Dòng “chưa giao” là kế hoạch giao tiếp theo, hạn thu tính từ cuối tuần giao dự kiến —
+          giao trễ thì tiền về trễ theo.
+          {ar.asOf && <> Số chốt từ file ngày <b>{ar.asOf}</b>.</>}
+        </p>
+      </section>
 
       <section className="m2-panel">
         <div className="m2-head">
