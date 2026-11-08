@@ -45,6 +45,17 @@ def main():
         whs = rd(cur, """select warehouse_name code, location_id,
                                  payload->>'state' tinh, payload->>'address' dia_chi
                           from shopee.raw_warehouse order by warehouse_name""")
+
+        # Tồn đầu kỳ khai tay + đơn bán ngoài sàn. Phải đọc TRONG khối `with`
+        # vì phần lắp ráp payload phía dưới nằm ngoài, lúc đó kết nối đã đóng.
+        bmeta = rd(cur, "select as_of::text, updated_at::text, updated_by, n_sku, n_unit, warehouses "
+                        "from public.stock_baseline_meta where id = 1")
+        brows = rd(cur, "select sku, wh, qty::int qty from public.stock_baseline order by sku, wh")
+        offs  = rd(cur, "select id, d::text, sku, qty::int qty, note from public.offline_sale order by d, id")
+        # Công nợ NCC khai tay (từ phần mềm kế toán) — số dùng để lập kế hoạch chi.
+        dmeta = rd(cur, "select as_of::text, updated_at::text, updated_by, total::bigint "
+                        "from public.supplier_debt_meta where id = 1")
+        drows = rd(cur, "select code, name, debt::bigint from public.supplier_debt order by debt desc")
         # --- Marketing Analysis ---
         mk_month = rd(cur, """
             select a.ym,
@@ -195,6 +206,26 @@ def main():
              'warehouses': warehouses,
              'rows': [{'sku': r['sku'], 'wh': r['wh'], 'qty': int(r['qty'])} for r in stk]}
 
+    # ---- TỒN ĐẦU KỲ khai tay + đơn bán ngoài sàn ----------------------------
+    # Từ 08/11/2026 tồn KHÔNG lấy từ Shopee nữa (API trả sai: app 949 vs kiểm
+    # kho thực tế 827). Tồn hiện tại = tồn đầu kỳ − bán Shopee sau mốc − bán
+    # ngoài sàn. Khối stock ở trên giữ lại để ĐỐI CHIẾU với số Shopee đang hiện.
+    baseline = {
+        'meta': {**(bmeta[0] if bmeta else {}), 'exportedAt': now,
+                 'note': ('Tồn đầu kỳ do kiểm kho thực tế, tải lên từ file Excel. '
+                          'Mã kho WH001..WH005 theo file kiểm kho, KHÁC mã kho Shopee. '
+                          'WH004 (trưng bày + hàng lỗi) không tính vào tồn bán được '
+                          'nhưng VẪN tính vào giá trị tồn kho.')},
+        'rows': brows,
+        'offline': offs,
+    }
+
+    debt = {'meta': {**(dmeta[0] if dmeta else {}), 'exportedAt': now,
+                     'note': ('Công nợ khai tay từ phần mềm kế toán. Số app tự cộng từ PO '
+                              'trong Master Data KHÁC số này vì Master Data chưa cập nhật '
+                              'các khoản đã thanh toán — dùng số khai tay để lập kế hoạch chi.')},
+            'rows': drows}
+
     # các chỉ số tỷ lệ phải giữ đủ số lẻ, làm tròn 2 chữ số sẽ mất sạch (CTR 3,4% -> 0,03)
     RATE = {'ctr', 'cr', 'net_rate', 'tacos', 'ads_share', 'gm', 'fee_rate', 'acos'}
     def clean(rows):
@@ -253,7 +284,8 @@ def main():
              'master': {'skus': len(json.load(open(os.path.join(OUT, 'master.json')))['skus'])}}
 
     for name, obj in (('sales', sales), ('sales_daily', daily), ('platform', plat),
-                      ('stock', stock), ('marketing', mkt), ('infra', infra)):
+                      ('stock', stock), ('stock_baseline', baseline), ('supplier_debt', debt),
+                      ('marketing', mkt), ('infra', infra)):
         p = os.path.join(OUT, name + '.json')
         with open(p, 'w') as f:
             json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))

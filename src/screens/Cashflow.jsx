@@ -4,8 +4,8 @@ import {
   ResponsiveContainer, ReferenceLine, Legend, Cell,
 } from 'recharts'
 import master from '../data/master'
-import stock from '../data/stock.json'
-import { SKU_MAP } from '../lib/metrics'
+import debtFile from '../data/supplier_debt.json'
+import { SKU_MAP, BASE_SUMMARY, STOCK_BY_SKU } from '../lib/metrics'
 import { trieu, num } from '../lib/format'
 import {
   fetchCashflow, pushCashflow, fetchCashflowLog, cashflowCache, cashflowMeta,
@@ -157,21 +157,30 @@ export default function Cashflow() {
     }
   }, [data, from, nWeeks, NCC])
 
-  /* Công nợ & tồn kho từ dữ liệu app — chỉ để THAM CHIẾU, không tự điền */
+  /* Công nợ: lấy số KHAI TAY từ phần mềm kế toán (src/data/supplier_debt.json).
+     Số app tự cộng từ PO trong Master Data ra 1.379,6tr trong khi số thật là
+     779,2tr — lệch 600tr vì Master Data chưa cập nhật các khoản đã thanh toán.
+     Giữ cả hai để đối chiếu, nhưng số dùng để lập kế hoạch chi là số khai tay. */
   const ref = useMemo(() => {
-    const bySup = new Map()
-    for (const p of master.purchaseOrders) {
-      const o = p.outstanding || 0
-      if (o <= 0) continue
-      const t = bySup.get(p.supplier) || { name: p.supplier, no: 0, po: 0, quaHan: 0 }
-      t.no += o; t.po += 1
-      if ((p.daysOverdue || 0) > 0) t.quaHan += o
-      bySup.set(p.supplier, t)
-    }
-    const rows = [...bySup.values()].sort((a, b) => b.no - a.no)
-    const tonValue = stock.rows.reduce((a, r) => a + r.qty * (SKU_MAP[r.sku]?.unitCost || 0), 0)
+    const byCode = new Map(master.suppliers.map(s => [s.code, s.name]))
+    const rows = (debtFile.rows || []).map(r => ({
+      code: r.code, name: byCode.get(r.code) || r.name, no: r.debt || 0,
+    })).filter(r => r.no > 0).sort((a, b) => b.no - a.no)
     const tongNo = rows.reduce((a, r) => a + r.no, 0)
-    return { rows, tongNo, tonValue, chenh: tonValue - tongNo }
+
+    /* Số cũ tính từ PO — chỉ để chỉ ra độ lệch, không dùng để lập kế hoạch */
+    let noTuPO = 0
+    for (const p of master.purchaseOrders) noTuPO += Math.max(0, p.outstanding || 0)
+
+    /* Giá trị tồn lấy từ TỒN KIỂM KHO (gồm cả kho không bán được), không lấy
+       từ số Shopee nữa — cùng nguồn với màn Tồn kho. */
+    const tonValue = Object.entries(STOCK_BY_SKU).reduce(
+      (a, [sku, t]) => a + (t.total + t.store) * (SKU_MAP[sku]?.unitCost || 0), 0)
+
+    return {
+      rows, tongNo, noTuPO, tonValue, chenh: tonValue - tongNo,
+      asOf: debtFile.meta?.as_of || null, tonAsOf: BASE_SUMMARY.asOf,
+    }
   }, [])
 
   const set = (wkid, path, val) => {
@@ -515,31 +524,30 @@ export default function Cashflow() {
             <>
               <table className="cf-ref">
                 <thead>
-                  <tr><th>Nhà cung cấp</th><th className="num">Công nợ</th>
-                    <th className="num">Quá hạn</th><th className="num">PO</th></tr>
+                  <tr><th>Mã</th><th>Nhà cung cấp</th><th className="num">Nợ cần trả</th></tr>
                 </thead>
                 <tbody>
                   {ref.rows.map(r => (
-                    <tr key={r.name}>
+                    <tr key={r.code}>
+                      <td className="sm">{r.code}</td>
                       <td><b>{r.name}</b></td>
                       <td className="num">{trieu(r.no, 1)}</td>
-                      <td className={`num${r.quaHan ? ' neg' : ''}`}>{r.quaHan ? trieu(r.quaHan, 1) : '—'}</td>
-                      <td className="num">{r.po}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr><td>Tổng</td><td className="num">{trieu(ref.tongNo, 1)}</td>
-                    <td className="num">{trieu(ref.rows.reduce((a, r) => a + r.quaHan, 0), 1)}</td>
-                    <td className="num">{ref.rows.reduce((a, r) => a + r.po, 0)}</td></tr>
+                  <tr><td /><td>Tổng</td><td className="num">{trieu(ref.tongNo, 1)}</td></tr>
                 </tfoot>
               </table>
+              <p className="cf-note">
+                Số lấy từ <b>phần mềm kế toán</b>, chốt ngày <b>{ref.asOf}</b> — đây là số dùng
+                để lập kế hoạch chi.
+              </p>
               <p className="cf-note warn">
-                Con số này là <b>tổng mọi PO chưa đánh dấu đã trả</b> trong Master Data
-                ({trieu(ref.tongNo, 0)} tr). Bản báo cáo tuần đang gửi ghi khoảng 954 tr —
-                lệch vì Master Data chưa cập nhật các khoản đã thanh toán. Dùng cột này để
-                <b> đối chiếu</b>, đừng chép thẳng; muốn khớp thì cập nhật cột <i>paid</i> trong
-                Master Data rồi tải lại ở màn Cơ sở hạ tầng.
+                App tự cộng từ PO trong Master Data ra <b>{trieu(ref.noTuPO, 0)} tr</b>, lệch{' '}
+                <b>{trieu(ref.noTuPO - ref.tongNo, 0)} tr</b> so với số trên — vì Master Data chưa
+                đánh dấu các khoản đã thanh toán (cột <i>paid</i>). Không dùng số tính từ PO để
+                chi tiền; muốn hai bên khớp thì cập nhật cột <i>paid</i> rồi tải lại Master Data.
               </p>
             </>
           )}
@@ -559,7 +567,8 @@ export default function Cashflow() {
             </div>
           </div>
           <p className="cf-note">
-            Tồn kho tính theo giá vốn chưa VAT, công nợ tính trên giá có VAT — nên phần
+            Tồn kho theo <b>kiểm kho ngày {ref.tonAsOf}</b> (gồm cả hàng ở kho không bán được),
+            tính theo giá vốn chưa VAT; công nợ tính trên giá có VAT — nên phần
             {ref.chenh < 0 ? ' thiếu' : ' dư'} này luôn bị thổi rộng hơn thực tế một chút.
             Đọc theo hướng, đừng đọc như số quyết toán.
           </p>

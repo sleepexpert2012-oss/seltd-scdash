@@ -1,6 +1,7 @@
 import master from '../data/master'
 import sales from '../data/sales.json'
 import stock from '../data/stock.json'
+import baseline from '../data/stock_baseline.json'
 import phantomFile from '../data/phantom.json'
 import daily from '../data/sales_daily.json'
 
@@ -310,7 +311,13 @@ export const growth = (cur, prev) => (prev > 0 ? cur / prev - 1 : null)
    ============================================================ */
 export const STOCK_AS_OF = stock.meta.asOf
 export const STOCK_AS_OF_DATE = stock.meta.asOfDate || (stock.meta.asOf.replace('.', '-') + '-01')
-export const WAREHOUSES = stock.warehouses
+/* Danh sách kho nay lấy từ FILE KIỂM KHO (5 kho WH001..WH005), không lấy từ
+   Shopee (4 kho WH01..WH04) nữa — vì tồn đã chuyển sang nguồn kiểm kho.
+   Giữ trường `type` để các màn cũ đang lọc theo 'Kho bán hàng' vẫn chạy. */
+export const WAREHOUSES = (baseline.meta?.warehouses || []).map(w => ({
+  ...w, type: w.sell ? 'Kho bán hàng' : 'Kho lưu trữ',
+}))
+export const SHOPEE_WAREHOUSES = stock.warehouses
 export const STOCK_IS_MOCK = stock.meta.kind === 'MOCK'
 export const Z_SERVICE = 2.33
 export const VMIN = 10          // dưới mức này coi như bán chậm, không replenish
@@ -342,23 +349,79 @@ export const SKU_DEMAND = (() => {
 
 /* Tồn theo SKU và theo kho */
 /* Tồn NGUYÊN BẢN theo Shopee — chưa trừ phần bơm ảo */
-/* Kho bán hàng vs kho lưu trữ: "Kho hàng lỗi" (WH04, type 'Kho lưu trữ') KHÔNG
-   phải hàng bán được. Trước đây nó được cộng vào tồn khả dụng nên chạy vào cả
-   điểm đặt hàng, số tháng bán còn, tồn chết và vốn tồn — tức hàng lỗi được coi
-   như hàng bán được. Hiện chỉ 2 unit nên sai số nhỏ, nhưng sai nguyên tắc.
-   Từ đây `total` chỉ gồm kho bán hàng; hàng ở kho lưu trữ đếm riêng ở `store`. */
-export const SELL_WH = new Set(
-  stock.warehouses.filter(w => w.type === 'Kho bán hàng').map(w => w.code)
-)
+/* ============================================================
+   TỒN KHO — TỪ 08/11/2026 KHÔNG LẤY TỪ SHOPEE NỮA
 
+   Lý do: API Shopee trả sai. Hôm 08/11 app đang hiện 949 unit trong khi kiểm
+   kho thực tế chỉ 827. Anh Louis gửi file kiểm kho và chốt cách tính mới:
+
+       tồn hiện tại = tồn đầu kỳ (kiểm kho) − SL bán trên Shopee sau mốc
+                                             − SL bán ngoài sàn (khai tay)
+
+   Tồn đầu kỳ là ảnh chụp kiểm kho tại một thời điểm, cập nhật bằng cách tải
+   lại file Excel. Kho trong file là WH001..WH005, KHÁC mã kho Shopee WH01..WH04.
+
+   WH004 (trưng bày + hàng lỗi): KHÔNG tính vào tồn bán được, nhưng VẪN tính
+   vào giá trị tồn kho — anh Louis chốt 08/11/2026.
+
+   Số Shopee vẫn giữ ở SHOPEE_STOCK_BY_SKU để ĐỐI CHIẾU, không dùng để tính.
+   ============================================================ */
+export const BASE_WAREHOUSES = baseline.meta?.warehouses || []
+export const BASE_AS_OF = baseline.meta?.as_of || null
+export const SELL_WH = new Set(BASE_WAREHOUSES.filter(w => w.sell).map(w => w.code))
+
+/* Tồn Shopee — chỉ để so, không vào phép tính nào */
+export const SHOPEE_STOCK_BY_SKU = (() => {
+  const out = {}
+  for (const r of stock.rows) out[r.sku] = (out[r.sku] || 0) + r.qty
+  return out
+})()
+
+/* Tồn đầu kỳ theo SKU, tách kho bán được và kho không bán được */
 export const STOCK_RAW_BY_SKU = (() => {
   const out = {}
-  for (const r of stock.rows) {
+  for (const r of baseline.rows || []) {
     const t = out[r.sku] || { total: 0, store: 0, byWh: {} }
     if (SELL_WH.has(r.wh)) t.total += r.qty
     else t.store += r.qty
     t.byWh[r.wh] = (t.byWh[r.wh] || 0) + r.qty
     out[r.sku] = t
+  }
+  return out
+})()
+
+/* SL đã bán sau mốc đầu kỳ: Shopee (theo ngày đặt) + ngoài sàn (khai tay).
+   LƯU Ý: dùng ngày ĐẶT đơn, không phải ngày xuất kho — lệch vài ngày với thực
+   tế trừ hàng, nhưng Shopee không trả ngày xuất kho nên đây là mốc gần nhất. */
+export const SOLD_AFTER_BASE = (() => {
+  const out = {}
+  if (!BASE_AS_OF) return out
+  for (const r of daily.rows) {
+    if (r.d <= BASE_AS_OF) continue
+    out[r.sku] = (out[r.sku] || 0) + (r.un || 0)
+  }
+  for (const r of baseline.offline || []) {
+    if (r.d <= BASE_AS_OF) continue
+    out[r.sku] = (out[r.sku] || 0) + (r.qty || 0)
+  }
+  return out
+})()
+
+export const SOLD_SHOPEE_AFTER = (() => {
+  const out = {}
+  if (!BASE_AS_OF) return out
+  for (const r of daily.rows) {
+    if (r.d <= BASE_AS_OF) continue
+    out[r.sku] = (out[r.sku] || 0) + (r.un || 0)
+  }
+  return out
+})()
+
+export const SOLD_OFFLINE_AFTER = (() => {
+  const out = {}
+  for (const r of baseline.offline || []) {
+    if (BASE_AS_OF && r.d <= BASE_AS_OF) continue
+    out[r.sku] = (out[r.sku] || 0) + (r.qty || 0)
   }
   return out
 })()
@@ -427,50 +490,60 @@ export function resetPhantom() {
 /* Tồn dùng cho MỌI tính toán = tồn Shopee − số đã bơm ảo.
    Trừ dần từ kho đang nhiều nhất: không biết được kho nào bị bơm, mà trừ theo
    tỷ lệ thì ra số lẻ nên chọn cách này và ghi rõ trong tài liệu. */
+/* Tồn hiện tại = tồn đầu kỳ (kho bán được) − đã bán sau mốc.
+   Kẹp sàn 0 và giữ phần vượt ở `over` để màn Tồn kho cảnh báo: bán nhiều hơn
+   tồn đầu kỳ nghĩa là kiểm kho thiếu, hoặc có nhập hàng sau mốc chưa khai.
+
+   Cột theo kho (`byWh`) là ảnh chụp TẠI MỐC ĐẦU KỲ, cố ý không chia phần đã
+   bán xuống từng kho — Shopee không cho biết đơn xuất từ kho nào, chia ra là
+   bịa. Cột tổng mới là số hiện tại. */
 export const STOCK_BY_SKU = (() => {
   const out = {}
-  for (const [sku, t] of Object.entries(STOCK_RAW_BY_SKU)) {
-    const ph = PHANTOM[sku] || 0
-    if (!ph) {
-      out[sku] = { total: t.total, store: t.store, byWh: { ...t.byWh },
-                   raw: t.total, phantom: 0, over: 0 }
-      continue
-    }
-    /* Trừ tồn ảo chỉ trên kho BÁN HÀNG (hàng ở kho lỗi không bao giờ được
-       bơm lên Shopee), trừ dần từ kho nhiều hàng nhất. */
-    let left = ph
-    const byWh = { ...t.byWh }
-    for (const [wh, q] of Object.entries(t.byWh)
-      .filter(([wh]) => SELL_WH.has(wh))
-      .sort((a, b) => b[1] - a[1])) {
-      const cut = Math.min(q, left)
-      byWh[wh] = q - cut
-      left -= cut
-    }
+  const skus = new Set([...Object.keys(STOCK_RAW_BY_SKU), ...Object.keys(SOLD_AFTER_BASE)])
+  for (const sku of skus) {
+    const t = STOCK_RAW_BY_SKU[sku] || { total: 0, store: 0, byWh: {} }
+    const ban = Math.max(0, Math.round(SOLD_AFTER_BASE[sku] || 0))
     out[sku] = {
-      total: Math.max(0, t.total - ph), store: t.store, byWh,
-      raw: t.total, phantom: ph,
-      over: left,   // khai nhiều hơn tồn thực có -> cần soát lại
+      total: Math.max(0, t.total - ban),
+      store: t.store,
+      byWh: { ...t.byWh },
+      dauKy: t.total,
+      banSauMoc: ban,
+      banShopee: Math.round(SOLD_SHOPEE_AFTER[sku] || 0),
+      banNgoaiSan: Math.round(SOLD_OFFLINE_AFTER[sku] || 0),
+      over: Math.max(0, ban - t.total),
+      shopee: SHOPEE_STOCK_BY_SKU[sku] || 0,
     }
-  }
-  /* SKU khai ảo nhưng Shopee không còn tồn: vẫn giữ để màn Tồn ảo cảnh báo */
-  for (const [sku, ph] of Object.entries(PHANTOM)) {
-    if (!out[sku]) out[sku] = { total: 0, store: 0, byWh: {}, raw: 0, phantom: ph, over: ph }
   }
   return out
 })()
 
+/* Tổng hợp để màn Tồn kho nói rõ tồn đang tính theo cách nào */
+export const BASE_SUMMARY = (() => {
+  let dauKy = 0, ban = 0, banNgoai = 0, ton = 0, store = 0, over = 0, lech = 0
+  for (const [sku, t] of Object.entries(STOCK_BY_SKU)) {
+    dauKy += t.dauKy; ban += t.banSauMoc; banNgoai += t.banNgoaiSan
+    ton += t.total; store += t.store; over += t.over
+    lech += (t.shopee || 0) - (t.total + t.store)
+    void sku
+  }
+  const shopee = Object.values(SHOPEE_STOCK_BY_SKU).reduce((a, q) => a + q, 0)
+  return { asOf: BASE_AS_OF, dauKy, ban, banNgoai, ton, store, over, shopee, lech }
+})()
+
+/* Tồn ảo từ 08/11/2026 KHÔNG còn trừ vào tồn thật nữa — tồn thật nay tính từ
+   kiểm kho, không lấy từ Shopee. Nó chỉ còn một việc: đối chiếu số đang bơm
+   với số Shopee đang hiển thị, để biết Shopee đang treo bao nhiêu hàng ảo. */
 export const PHANTOM_SUMMARY = (() => {
   const skus = Object.keys(PHANTOM)
-  let declared = 0, cut = 0, over = 0
+  let declared = 0, vuotShopee = 0
   for (const sku of skus) {
-    const s = STOCK_BY_SKU[sku]
-    declared += PHANTOM[sku]
-    cut += Math.min(PHANTOM[sku], s?.raw || 0)
-    over += s?.over || 0
+    const ph = PHANTOM[sku]
+    declared += ph
+    vuotShopee += Math.max(0, ph - (SHOPEE_STOCK_BY_SKU[sku] || 0))
   }
-  const raw = Object.values(STOCK_RAW_BY_SKU).reduce((a, s) => a + s.total, 0)
-  return { count: skus.length, declared, cut, over, raw, real: raw - cut, on: skus.length > 0 }
+  const shopee = Object.values(SHOPEE_STOCK_BY_SKU).reduce((a, q) => a + q, 0)
+  return { count: skus.length, declared, vuotShopee, shopee, on: skus.length > 0 }
 })()
 
 /* Lead time mặc định theo nhà cung cấp; người dùng chỉnh được và lưu tại máy */
@@ -565,7 +638,9 @@ export function stockPlan(filterFn) {
     const vel3 = dm?.vel3 || 0
     const sd = dm?.sd || 0
     const g = dm?.g || 0
-    if (ton <= 0 && vel3 <= 0) continue
+    /* Phải giữ cả SKU chỉ còn hàng ở kho KHÔNG bán được: ton = 0 nhưng vẫn là
+       tiền nằm trong kho. Bỏ qua thì giá trị tồn và cột kho lưu trữ bị hụt. */
+    if (ton <= 0 && vel3 <= 0 && (st?.store || 0) <= 0) continue
 
     const LT = leadTimeOf(s.sku)
     const ss = Math.round(Z_SERVICE * sd * Math.sqrt(LT / 30))
@@ -584,7 +659,9 @@ export function stockPlan(filterFn) {
     out.push({
       sku: s.sku, name: s.name, nganh: s.nganh, className: s.className, brand: s.brand,
       ton, byWh: st?.byWh || {}, vel3, sd, g, ml, LT, moq, ss, rop, oup, need, canOrder, stt,
-      cost: s.unitCost || 0, value: ton * (s.unitCost || 0),
+      /* Giá trị tồn tính trên CẢ hàng ở kho không bán được: hàng lỗi/trưng bày
+         vẫn là tiền đã bỏ ra, chỉ là không bán được — anh Louis chốt 08/11/2026. */
+      cost: s.unitCost || 0, value: (ton + (st?.store || 0)) * (s.unitCost || 0),
       needValue: need * (s.unitCost || 0),
     })
   }

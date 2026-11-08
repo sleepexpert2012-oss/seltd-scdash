@@ -8,6 +8,7 @@ import {
   stockPlan, STATUS, WAREHOUSES, STOCK_AS_OF, STOCK_AS_OF_DATE, STOCK_IS_MOCK, Z_SERVICE, VMIN,
   LAST_RECEIPT, setLeadTime, resetLeadTime, LT_OVERRIDE,
   STOCK_RAW_BY_SKU, PHANTOM, PHANTOM_SUMMARY, setPhantomBulk, resetPhantom, SKU_MAP,
+  BASE_AS_OF, BASE_SUMMARY, SHOPEE_STOCK_BY_SKU,
   PHANTOM_SHARED, PHANTOM_SHARED_META, PHANTOM_HAS_LOCAL,
 } from '../lib/metrics'
 import { exportRowsXlsx, exportJson } from '../lib/masterFile'
@@ -166,16 +167,40 @@ export default function Stock({ filters, setFilters }) {
         <span className="hint">— áp dụng cho toàn bộ trang: KPI, biểu đồ, kế hoạch đặt, bảng chi tiết</span>
       </div>
 
+      {/* Nói rõ tồn đang tính theo cách nào — đổi nguồn tồn mà không khai ra thì
+          người đọc vẫn tưởng đang xem số Shopee. */}
+      <div className="base-banner">
+        <span className="tag">TỒN TÍNH TỪ KIỂM KHO</span>
+        <span>
+          Đầu kỳ <b>{num(BASE_SUMMARY.dauKy + BASE_SUMMARY.store)}</b> unit theo file kiểm kho
+          ngày <b>{BASE_AS_OF}</b>
+          {BASE_SUMMARY.ban > 0
+            ? <> · đã bán sau mốc <b>{num(BASE_SUMMARY.ban)}</b>
+                {BASE_SUMMARY.banNgoai > 0 && <> (trong đó {num(BASE_SUMMARY.banNgoai)} ngoài sàn)</>}</>
+            : <> · chưa phát sinh bán sau mốc</>}
+          {' '}→ <b>tồn hiện tại {num(BASE_SUMMARY.ton)}</b> unit bán được
+          {BASE_SUMMARY.store > 0 && <> + {num(BASE_SUMMARY.store)} ở kho không bán được</>}.
+          {' '}Shopee đang báo <b>{num(BASE_SUMMARY.shopee)}</b> unit —
+          {BASE_SUMMARY.lech === 0 ? ' khớp.' : <> lệch <b>{BASE_SUMMARY.lech > 0 ? '+' : ''}{num(BASE_SUMMARY.lech)}</b>, số Shopee KHÔNG dùng để tính.</>}
+          {BASE_SUMMARY.over > 0 && (
+            <em> ⚠ {num(BASE_SUMMARY.over)} unit bán nhiều hơn tồn đầu kỳ — kiểm kho thiếu
+              hoặc có nhập hàng sau mốc chưa khai.</em>
+          )}
+        </span>
+      </div>
+
       {PHANTOM_SUMMARY.on && (
         <div className="ph-banner">
           <b>Đang trừ tồn ảo</b>
           <span>
-            {num(PHANTOM_SUMMARY.count)} SKU khai bơm {num(PHANTOM_SUMMARY.declared)} unit ·
-            tồn Shopee {num(PHANTOM_SUMMARY.raw)} → <b>tồn thật {num(PHANTOM_SUMMARY.real)}</b>.
+            {num(PHANTOM_SUMMARY.count)} SKU khai bơm {num(PHANTOM_SUMMARY.declared)} unit trên Shopee
+            (Shopee đang hiển thị {num(PHANTOM_SUMMARY.shopee)} unit).{' '}
+            <b>Từ {BASE_AS_OF} tồn tính theo kiểm kho nên số này KHÔNG còn trừ vào tồn thật</b> —
+            giữ lại để biết Shopee đang treo bao nhiêu hàng ảo.
             {' '}Nguồn: <b>{CLOUD?.ok === false ? 'lưu tạm tại máy (mất kết nối đám mây)' : 'đám mây, dùng chung mọi máy'}</b>
             {CLOUD?.at ? <> · sửa cuối {fmtTime(CLOUD.at)}{CLOUD.by ? ` bởi ${CLOUD.by}` : ''}</> : null}.
-            {PHANTOM_SUMMARY.over > 0 && (
-              <em> ⚠ {num(PHANTOM_SUMMARY.over)} unit khai nhiều hơn tồn Shopee đang có — cần soát lại.</em>
+            {PHANTOM_SUMMARY.vuotShopee > 0 && (
+              <em> ⚠ {num(PHANTOM_SUMMARY.vuotShopee)} unit khai nhiều hơn tồn Shopee đang có — cần soát lại.</em>
             )}
           </span>
           <button className="xls-btn" onClick={() => setTab('phantom')}>Xem &amp; sửa</button>
@@ -476,7 +501,15 @@ function DimTable({ rows, whTotals, totalTon, totalValue }) {
           <thead>
             <tr>
               <th>Ngành</th>
-              {WAREHOUSES.map(w => <th key={w.code} className="num">{w.code}</th>)}
+              {/* Hiện tên kho ngay dưới mã: người không thuộc mã vẫn biết đó là kho nào */}
+              {WAREHOUSES.map(w => (
+                <th key={w.code} className={`num wh-col${w.sell === false ? ' store' : ''}`}
+                  title={w.sell === false
+                    ? `${w.name} — không tính vào tồn khả dụng`
+                    : `${w.name} — kho bán hàng`}>
+                  {w.code}<i>{w.name}</i>
+                </th>
+              ))}
               <th className="num">Tổng (u)</th>
               <th className="num">Giá vốn (tr)</th>
               <th>Tỷ trọng {basis === 'value' ? 'vốn' : 'SL'}</th>
@@ -525,7 +558,11 @@ function DimTable({ rows, whTotals, totalTon, totalValue }) {
                   const v = basis === 'value'
                     ? rows.reduce((a, r) => a + whValue(r, w.code), 0)
                     : whTotals[w.code] || 0
-                  return <span key={w.code}>{w.code} {pct(total > 0 ? v / total : 0, 0)}</span>
+                  return (
+                    <span key={w.code} title={w.name}>
+                      {w.code} <i className="wh-nm">{w.name}</i> {pct(total > 0 ? v / total : 0, 0)}
+                    </span>
+                  )
                 })}
               </td>
             </tr>
@@ -806,7 +843,7 @@ function PhantomPanel() {
         name: s.name || '(không có trong Master Data)',
         nganh: s.nganh || '—',
         className: s.className || '—',
-        raw: STOCK_RAW_BY_SKU[sku]?.total || 0,
+        raw: SHOPEE_STOCK_BY_SKU[sku] || 0,   // tồn ảo là chuyện của Shopee, không phải tồn kiểm kho
         shared: PHANTOM_SHARED[sku] || 0,
       }
     }).sort((a, b) => b.raw - a.raw || a.sku.localeCompare(b.sku))

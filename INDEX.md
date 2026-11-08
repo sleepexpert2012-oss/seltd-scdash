@@ -107,6 +107,31 @@ Phễu và biểu đồ chi phí/ROAS **chỉ xuất hiện ở tab Tổng quan*
 chỉ có biểu đồ của đúng cấp đó (phân tán bong bóng · thanh ngang ghép đôi ·
 cột phân kỳ · treemap · thanh 100% phân bổ).
 
+### Đổi nguồn TỒN KHO và CÔNG NỢ (2026-11-08)
+**Tồn kho không lấy từ Shopee nữa.** API trả sai: app hiện 949 unit trong khi kiểm kho
+thực tế 827. Cách tính mới anh Louis chốt:
+
+    tồn hiện tại = tồn đầu kỳ (kiểm kho) − SL bán Shopee sau mốc − SL bán ngoài sàn
+
+- Tồn đầu kỳ: file Excel kiểm kho → `public.stock_baseline` + `stock_baseline_meta`
+  (giữ cả mốc ngày và danh sách kho). Nạp bằng `scripts/shopee/load_stock_baseline.py`.
+- Kho trong file là **WH001..WH005**, KHÁC mã kho Shopee WH01..WH04. WH005 *Kho nhà Trung*
+  là kho mới Shopee không có.
+- **WH004** (trưng bày + hàng lỗi): không tính vào tồn bán được nhưng **vẫn tính vào giá
+  trị tồn kho** — anh Louis chốt.
+- Bán ngoài sàn: `public.offline_sale`, khai tay, trừ thêm vào tồn.
+- Số Shopee giữ ở `SHOPEE_STOCK_BY_SKU` để **đối chiếu**, không vào phép tính nào.
+- **Tồn ảo không còn trừ vào tồn thật** — nó chỉ còn ý nghĩa khi so với số Shopee đang hiển thị.
+- Cột theo từng kho là ảnh chụp **tại mốc đầu kỳ**; phần đã bán cố ý không chia xuống từng
+  kho vì Shopee không cho biết đơn xuất từ kho nào.
+
+**Công nợ NCC khai tay** từ phần mềm kế toán → `public.supplier_debt` (+ meta).
+Chốt 08/11/2026: tổng **779.163.345 đ**. Số app tự cộng từ PO trong Master Data ra
+**1.379,6tr** — lệch 600tr vì Master Data chưa đánh dấu khoản đã thanh toán.
+Màn Dòng tiền và Nhà cung cấp dùng số khai tay, bảng PO giữ lại để tra PO quá hạn.
+
+File gốc lưu ở `data-goc/2026-11-08_SELTD Inventory Update.xlsx`.
+
 ### Màn hình 13 — Dòng tiền (2026-09-16)
 `src/screens/Cashflow.jsx` + `cashflow.css`, nhóm *Phân tích kinh doanh*.
 Dựng theo file Excel "Báo Cáo Dòng Tiền SLEEP EXPERT 2026" đang dùng hằng tuần.

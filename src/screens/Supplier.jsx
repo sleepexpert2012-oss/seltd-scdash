@@ -1,4 +1,10 @@
 import { Fragment, useMemo, useState } from 'react'
+import debtFile from '../data/supplier_debt.json'
+
+/* Tổng công nợ tính từ TOÀN BỘ PO (không theo bộ lọc kỳ) — chỉ dùng để nêu độ
+   lệch với số công nợ chính thức. */
+const PO_OUTSTANDING_ALL = master.purchaseOrders
+  .reduce((a, p) => a + Math.max(0, p.outstanding || 0), 0)
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Cell, Legend,
@@ -408,11 +414,57 @@ export default function Supplier({ filters, setFilters }) {
             </p>
           </div>
 
+          {/* Số công nợ CHÍNH THỨC lấy từ phần mềm kế toán. Bảng PO phía dưới
+              tính từ Master Data và lệch, vì Master Data chưa đánh dấu các khoản
+              đã thanh toán — để cạnh nhau cho thấy rõ độ lệch thay vì im lặng. */}
           <div className="m2-panel">
             <div className="m2-head">
               <div>
-                <h3>Công nợ theo nhà cung cấp</h3>
-                <p>Giá trị có VAT · số ngày quá hạn lấy theo cột Days Overdue trong file</p>
+                <h3>Nợ cần trả hiện tại — số từ phần mềm kế toán</h3>
+                <p>Chốt ngày {debtFile.meta?.as_of} · đây là số dùng để lập kế hoạch chi tiền</p>
+              </div>
+            </div>
+            <div className="m2-tablewrap sup-table">
+              <table>
+                <thead>
+                  <tr><th>Mã</th><th>Nhà cung cấp</th><th className="num">Nợ cần trả</th>
+                    <th className="num">Tỷ trọng</th></tr>
+                </thead>
+                <tbody>
+                  {(debtFile.rows || []).map(r => (
+                    <tr key={r.code}>
+                      <td className="mono">{r.code}</td>
+                      <td><b>{r.name}</b></td>
+                      <td className="num strong">{r.debt > 0
+                        ? <span className="warn">{trieu(r.debt)}</span> : <span className="dim">—</span>}</td>
+                      <td className="num">{pct(debtFile.meta?.total > 0 ? r.debt / debtFile.meta.total : 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr><td /><td><b>Tổng</b></td>
+                    <td className="num strong">{trieu(debtFile.meta?.total || 0)}</td>
+                    <td className="num">100%</td></tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="sup-note">
+              {/* Phải so TOÀN BỘ PO, không so phần đã lọc theo kỳ — nếu không hai
+                  con số khác phạm vi, đặt cạnh nhau là so sai. */}
+              App tự cộng từ <b>toàn bộ</b> PO trong Master Data ra <b>{trieu(PO_OUTSTANDING_ALL)}</b> triệu
+              — lệch <b>{trieu(PO_OUTSTANDING_ALL - (debtFile.meta?.total || 0))}</b> triệu so với số trên.
+              Nguyên nhân: Master Data chưa đánh dấu các khoản đã thanh toán ở cột <i>paid</i>.
+              Bảng dưới đây là <b>chi tiết theo PO</b> — dùng để tra PO nào quá hạn, không dùng
+              để chốt số tiền phải trả.
+            </p>
+          </div>
+
+          <div className="m2-panel">
+            <div className="m2-head">
+              <div>
+                <h3>Chi tiết theo PO trong Master Data</h3>
+                <p>Giá trị có VAT · số ngày quá hạn lấy theo cột Days Overdue trong file ·
+                  <b> không phải số công nợ chính thức</b></p>
               </div>
             </div>
             <div className="m2-tablewrap sup-table">

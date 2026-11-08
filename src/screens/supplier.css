@@ -50,3 +50,10 @@
 .ng-card .num{text-align:right;white-space:nowrap}
 .ng-card .strong{font-weight:700;color:var(--ink)}
 @media (max-width:1100px){.sup-by-ng{grid-template-columns:1fr}}
+
+/* Ghi chú độ lệch giữa công nợ khai tay và số tính từ PO */
+.sup-note {
+  margin: 10px 0 0; font-size: 10.5px; line-height: 1.55; color: #9A5B06;
+  border-top: 1px dashed var(--amber); padding-top: 8px;
+}
+.sup-note b { color: var(--ink); }
