@@ -4,6 +4,7 @@ import stock from '../data/stock.json'
 import baseline from '../data/stock_baseline.json'
 import phantomFile from '../data/phantom.json'
 import daily from '../data/sales_daily.json'
+import ar from '../data/receivable.json'
 
 export const MONTHS = sales.months
 export const SKU_MAP = Object.fromEntries(master.skus.map(s => [s.sku, s]))
@@ -393,6 +394,21 @@ export const STOCK_RAW_BY_SKU = (() => {
 /* SL đã bán sau mốc đầu kỳ: Shopee (theo ngày đặt) + ngoài sàn (khai tay).
    LƯU Ý: dùng ngày ĐẶT đơn, không phải ngày xuất kho — lệch vài ngày với thực
    tế trừ hàng, nhưng Shopee không trả ngày xuất kho nên đây là mốc gần nhất. */
+/* Phiếu xuất kho cho khách ngoài sàn CŨNG là hàng ra khỏi kho. Lấy thẳng từ
+   dòng hàng phiếu xuất thay vì bắt người dùng khai lại ở bảng "bán ngoài sàn":
+   khai hai nơi thì sớm muộn hai nơi lệch nhau. Chỉ tính phiếu SAU mốc kiểm kho
+   — hàng giao trước đó đã không còn trong số kiểm rồi. */
+export const PXK_AFTER_BASE = (() => {
+  const out = {}
+  if (!BASE_AS_OF) return out
+  const sau = new Set((ar.deliveries || []).filter(p => p.d > BASE_AS_OF).map(p => p.pxk))
+  for (const l of ar.deliveryLines || []) {
+    if (!sau.has(l.pxk)) continue
+    out[l.sku] = (out[l.sku] || 0) + (Number(l.qty) || 0)
+  }
+  return out
+})()
+
 export const SOLD_AFTER_BASE = (() => {
   const out = {}
   if (!BASE_AS_OF) return out
@@ -404,6 +420,7 @@ export const SOLD_AFTER_BASE = (() => {
     if (r.d <= BASE_AS_OF) continue
     out[r.sku] = (out[r.sku] || 0) + (r.qty || 0)
   }
+  for (const [sku, q] of Object.entries(PXK_AFTER_BASE)) out[sku] = (out[sku] || 0) + q
   return out
 })()
 
@@ -423,6 +440,7 @@ export const SOLD_OFFLINE_AFTER = (() => {
     if (BASE_AS_OF && r.d <= BASE_AS_OF) continue
     out[r.sku] = (out[r.sku] || 0) + (r.qty || 0)
   }
+  for (const [sku, q] of Object.entries(PXK_AFTER_BASE)) out[sku] = (out[sku] || 0) + q
   return out
 })()
 

@@ -235,12 +235,25 @@ export async function exportMasterXlsx(master, name = 'Master Data (kết xuất
   downloadBlob(name, new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
 }
 
+/* Kết xuất tự do: { 'Tên sheet': [ {cột: giá trị}, ... ] }.
+   Dùng cho phiếu xuất kho và bản đối chiếu công nợ gửi khách. */
 export async function exportRowsXlsx(name, sheets) {
   const XLSX = await lib()
   const wb = XLSX.utils.book_new()
-  for (const [sheet, rows] of Object.entries(sheets)) {
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), sheet.slice(0, 31))
+  for (const [ten, rows] of Object.entries(sheets)) {
+    const ws = Array.isArray(rows) && rows.length && Array.isArray(rows[0])
+      ? XLSX.utils.aoa_to_sheet(rows)            /* mảng thô: giữ nguyên bố cục */
+      : XLSX.utils.json_to_sheet(rows || [])
+    /* Độ rộng cột: lấy theo ô dài nhất, chặn ở 46 để không có cột dài cả màn */
+    const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+    const n = Math.max(0, ...grid.map(r => r.length))
+    ws['!cols'] = Array.from({ length: n }, (_, i) => ({
+      wch: Math.min(46, Math.max(9, ...grid.map(r => String(r[i] ?? '').length + 2))),
+    }))
+    XLSX.utils.book_append_sheet(wb, ws, ten.slice(0, 31))
   }
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-  downloadBlob(name, new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+  downloadBlob(name, new Blob([buf], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  }))
 }

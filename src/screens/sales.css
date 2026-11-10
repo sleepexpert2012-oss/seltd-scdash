@@ -1,0 +1,133 @@
+/* Màn Bán hàng đại lý — dùng chung mk-tabbar / m2-panel với các màn khác,
+   phần riêng là sl-*. Đây là màn NHẬP LIỆU nên ưu tiên ô gõ rõ ràng, hàng
+   thưa, chứ không nén chặt như các màn báo cáo. */
+
+.sl-page > .m2-title { display: flex; align-items: flex-start; gap: 16px; }
+.sl-page > .m2-title > div:first-child { flex: 1 1 auto; min-width: 0; }
+
+.sl-stamp {
+  flex: 0 0 auto; text-align: right; border-top: 3px solid var(--line); padding-top: 8px;
+}
+.sl-stamp span {
+  display: block; font-size: 9.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+}
+.sl-stamp b { display: block; font-size: 15px; font-weight: 750; color: var(--ink); }
+.sl-stamp i { font-size: 10px; font-style: normal; color: var(--ink-3); }
+
+.sl-acts { display: flex; align-items: center; gap: 10px; }
+.sl-dev { font-size: 10px; color: var(--ink-3); }
+
+/* ---- bảng ---- */
+.sl-tb { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.sl-tb th {
+  text-align: left; font-size: 9px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--line); padding: 0 8px 6px; white-space: nowrap;
+}
+.sl-tb th.num, .sl-tb td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.sl-tb td {
+  padding: 7px 8px; border-bottom: 1px solid var(--border-soft, var(--line));
+  color: var(--ink-2); vertical-align: middle;
+}
+.sl-tb td b { color: var(--ink); font-weight: 650; }
+.sl-tb td small {
+  display: block; font-size: 10px; color: var(--ink-3); font-weight: 400;
+  line-height: 1.35; margin-top: 1px;
+}
+.sl-tb td.sm { font-size: 10.5px; line-height: 1.45; }
+.sl-tb td.num.b { font-weight: 700; color: var(--ink); }
+.sl-tb .dim { color: var(--ink-3); }
+.sl-tb tbody tr:hover td { background: var(--surface-tint); }
+.sl-tb tfoot td {
+  border-top: 1.5px solid var(--line); border-bottom: 0;
+  padding-top: 9px; color: var(--ink);
+}
+.sl-tb tfoot td.sm { font-size: 10.5px; color: var(--ink-2); }
+
+.sl-empty {
+  text-align: center; padding: 20px 8px; font-size: 11.5px; color: var(--muted);
+}
+
+/* ---- nhãn trạng thái ---- */
+.sl-tag {
+  display: inline-block; padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: 9.5px; font-weight: 650; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.sl-tag.on  { background: rgba(31, 122, 69, .1);  color: var(--good); }
+.sl-tag.mid { background: rgba(217, 119, 6, .1);  color: #9A5B06; }
+.sl-tag.off { background: var(--surface-soft); color: var(--ink-3); border-color: var(--line); }
+
+/* ---- biểu mẫu ---- */
+.sl-form {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 980px) { .sl-form { grid-template-columns: repeat(2, 1fr); } }
+.sl-form label.wide { grid-column: 1 / -1; }
+.sl-form label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 10px; font-weight: 650; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+.sl-in {
+  width: 100%; height: 30px; padding: 0 9px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-control);
+  background: #fff; color: var(--ink); font-size: 12px;
+  font-family: inherit; font-weight: 500;
+}
+.sl-in:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(37, 99, 235, .12); }
+.sl-in:disabled { background: var(--surface-soft); color: var(--ink-3); }
+.sl-in.num { text-align: right; font-variant-numeric: tabular-nums; }
+.sl-in.sm { max-width: 72px; }
+select.sl-in { padding-right: 4px; }
+.sl-tb td .sl-in { height: 28px; }
+
+/* ---- bộ chọn SKU có tìm kiếm ---- */
+.sl-sku { position: relative; }
+.sl-drop {
+  position: absolute; z-index: 40; top: 31px; left: 0; right: 0; max-height: 240px;
+  overflow-y: auto; background: #fff; border: 1px solid var(--line);
+  border-radius: var(--r-control); box-shadow: 0 8px 20px rgba(15, 23, 42, .12);
+}
+.sl-drop button {
+  display: block; width: 100%; text-align: left; border: 0; background: none;
+  padding: 6px 10px; cursor: pointer; font-family: inherit;
+  border-bottom: 1px solid var(--border-soft, var(--line));
+}
+.sl-drop button:hover { background: var(--surface-tint); }
+.sl-drop button b { display: block; font-size: 11px; color: var(--ink); font-weight: 650; }
+.sl-drop button span { display: block; font-size: 10px; color: var(--muted); line-height: 1.35; }
+.sl-drop .sl-empty { padding: 12px 10px; text-align: left; }
+
+/* ---- nút ---- */
+.sl-page .group-ctrl { display: flex; gap: 8px; flex-wrap: wrap; }
+.sl-page .group-ctrl button, .sl-add {
+  height: 28px; padding: 0 12px; border: 1px solid var(--line);
+  border-radius: var(--r-control); background: #fff; color: var(--ink-2);
+  font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.sl-page .group-ctrl button:hover, .sl-add:hover { background: var(--surface-tint); color: var(--ink); }
+.sl-page .group-ctrl button.primary {
+  background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 650;
+}
+.sl-page .group-ctrl button.primary:hover:not(:disabled) { background: var(--blue); }
+.sl-page .group-ctrl button:disabled { opacity: .45; cursor: not-allowed; }
+.sl-add { border-style: dashed; }
+
+.sl-row-act { white-space: nowrap; text-align: right; }
+.sl-row-act button {
+  height: 24px; padding: 0 8px; margin-left: 4px; border: 1px solid var(--line);
+  border-radius: var(--r-control); background: #fff; color: var(--ink-2);
+  font-size: 10.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.sl-row-act button:hover { background: var(--surface-tint); color: var(--ink); }
+.sl-row-act button.del:hover { background: rgba(180, 35, 24, .08); color: var(--bad); border-color: transparent; }
+
+.sl-note {
+  margin: 12px 0 0; font-size: 10.5px; line-height: 1.55; color: var(--muted);
+  border-top: 1px dashed var(--line); padding-top: 9px;
+}
+.sl-note b { color: var(--ink-2); }

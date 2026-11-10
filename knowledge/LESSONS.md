@@ -123,3 +123,50 @@
   Cột "cạm bẫy" (chỗ đã có người đọc sai thật) là cột giá trị nhất và là cột hay bị bỏ nhất.
   Và phải cảnh báo ngay trong code: sửa công thức mà không sửa từ điển thì nó thành
   **sai lệch có thẩm quyền**, tệ hơn là không có từ điển.
+
+## 2026-11-10 — Màn Bán hàng / Phiếu xuất kho / Danh mục
+**Việc**: dựng nhập liệu cho kênh ngoài sàn + bảng đối chiếu công nợ gửi khách.
+
+**Sai gì**
+1. Gom đơn hàng, phiếu xuất và danh mục vào một màn "Bán hàng đại lý". Sai hai lớp:
+   đặt tên theo một kênh (đại lý) nên không dùng lại được cho kênh khác, và gom
+   nghiệp vụ kho vào màn bán. Người dùng phải nhắc ba lần mới tách đúng.
+2. `ar_order_line` chỉ lưu `qty` và `price`. Đơn DH001 có 71 cái chăn tặng (chiết
+   khấu 100%) nên giá trị đơn bị thổi từ 20,3tr lên 63,9tr.
+3. Cộng ngày bằng `new Date(iso+'T00:00:00')` rồi `toISOString()`. Ở múi +7 ngày bị
+   lùi một: hạn thanh toán 05/09 ra 04/09, mọi số "quá hạn (ngày)" lệch 1.
+4. `fetchSales()` và `export_app_data.py` chọn cột theo danh sách cứng. Thêm cột vào
+   DB mà quên sửa hai chỗ này thì app vẫn chạy, chỉ là hiện số sai — không có lỗi nào.
+
+**Sửa gì**
+- Tách ba màn theo nghiệp vụ, đặt tên trung tính ("Bán hàng"), nhóm menu riêng.
+- Thêm `disc`/`amount`/`note` vào `ar_order_line`, `save_order()` tự tính `amount`.
+- `src/lib/doiChieu.js` dùng `Date.UTC` + `setUTCDate` cho mọi phép ngày.
+- Đối chiếu kết quả với chính file Excel đang gửi khách, từng ô.
+
+**Rule rút ra**
+- **Đặt tên màn theo việc, không theo kênh.** "Bán hàng" dùng lại được, "Bán hàng
+  đại lý" thì không.
+- **Một màn một nghiệp vụ.** Đơn là cam kết, xuất kho là hàng đi — hai thứ sinh ra
+  hai loại số, đừng gom.
+- **Mọi phép cộng ngày trong app phải chạy bằng UTC.** Không có ngoại lệ.
+- **Thêm cột vào DB là việc bốn chỗ**: schema · hàm ghi · `cloud.js` · `export_app_data.py`.
+  Thiếu một chỗ thì sai số mà không báo lỗi.
+- **Nghiệm thu bằng chính file gốc khách đang giữ**, so từng ô, không so tổng.
+
+## 2026-11-10 (bổ sung) — Xuất Excel có định dạng
+**Việc**: bản đối chiếu công nợ gửi khách phải có màu/viền như file mẫu.
+
+**Sai gì**: dùng `xlsx` (SheetJS cộng đồng) để xuất. Nó ghi dữ liệu đúng nhưng
+**âm thầm bỏ hết style** — không lỗi, không cảnh báo, chỉ là file ra trắng trơn.
+
+**Sửa gì**: chuyển riêng đường xuất đối chiếu sang `xlsx-js-style` (fork cùng API).
+Đọc style file mẫu bằng openpyxl để lấy đúng mã màu, độ rộng cột, cỡ chữ, kiểu viền,
+rồi dựng lại từng ô — không đoán màu bằng mắt.
+
+**Rule rút ra**
+- **`xlsx` bản cộng đồng không ghi được style.** Cần màu thì dùng `xlsx-js-style`.
+- **Muốn giống mẫu thì đọc mẫu bằng máy**, lấy mã màu thật (`1F3864`, `BFBFBF`…),
+  đừng ước lượng từ ảnh chụp.
+- **Nghiệm thu file xuất bằng cách mở lại và so từng ô với mẫu**, cả giá trị lẫn style.
+- Tô xen kẽ bảng chi tiết phải theo **cụm nghiệp vụ** (từng phiếu), không theo dòng.

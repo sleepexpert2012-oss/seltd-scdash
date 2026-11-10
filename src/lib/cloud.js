@@ -152,3 +152,35 @@ export async function pushCashflow(weeks, actor = deviceName()) {
 export async function fetchCashflowLog(limit = 30) {
   return (await req(`/cashflow_log?select=id,at,actor,action,weeks&order=id.desc&limit=${limit}`)) || []
 }
+
+/* ============================================================
+   BÁN HÀNG ĐẠI LÝ — danh mục, đơn hàng, phiếu xuất, thanh toán
+   Cùng cơ chế: anon chỉ ĐỌC bảng, mọi ghi đi qua hàm SECURITY DEFINER.
+   ============================================================ */
+const rpc = (fn, body) => req(`/rpc/${fn}`, { method: 'POST', body })
+
+export const saveCustomer = (p, actor = deviceName()) => rpc('save_customer', { p, actor })
+export const saveSupplier = (p, actor = deviceName()) => rpc('save_supplier', { p, actor })
+export const saveOrder = (p, lines, actor = deviceName()) => rpc('save_order', { p, lines, actor })
+export const delOrder = (code, actor = deviceName()) => rpc('del_order', { p_code: code, actor })
+export const saveDelivery = (p, lines, actor = deviceName()) => rpc('save_delivery', { p, lines, actor })
+export const delDelivery = (pxk, actor = deviceName()) => rpc('del_delivery', { p_pxk: pxk, actor })
+export const addPayment = (cust, d, amount, note, actor = deviceName()) =>
+  rpc('add_ar_payment', { p_cust: cust, d, amount, note, actor })
+export const delPayment = (id, actor = deviceName()) => rpc('del_ar_payment', { row_id: id, actor })
+
+/* Đọc lại toàn bộ khối bán hàng sau khi ghi — rẻ vì dữ liệu nhỏ, và tránh
+   việc màn hình và đám mây lệch nhau do cập nhật cục bộ sai sót. */
+export async function fetchSales() {
+  const [customers, deliveries, deliveryLines, payments, orders, orderLines, suppliersExtra] =
+    await Promise.all([
+      req('/ar_customer?select=code,name,term_days,vat_rate,mst,addr,phone,email,note,active&order=code'),
+      req('/ar_delivery?select=pxk,cust,d,amount,note,don,invoice_no,qty&order=d'),
+      req('/ar_delivery_line?select=pxk,sku,qty,price,amount,note&order=pxk,id'),
+      req('/ar_payment?select=id,cust,d,amount,method,doc_no,note&order=d,id'),
+      req('/ar_order?select=code,cust,d,note,status&order=d'),
+      req('/ar_order_line?select=code,sku,qty,price,disc,amount,note&order=code,id'),
+      req('/supplier_extra?select=code,name,mst,phone,email,addr,term_days,note,active&order=code'),
+    ])
+  return { customers, deliveries, deliveryLines, payments, orders, orderLines, suppliersExtra }
+}

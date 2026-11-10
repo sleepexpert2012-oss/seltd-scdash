@@ -25,3 +25,9 @@ dist-ssr
 
 secrets/
 *.env
+
+# Chứng từ gốc của khách hàng — repo công khai nên KHÔNG đẩy lên.
+# File gốc vẫn nằm trên máy và trên OneDrive; app đọc số từ Supabase, không cần file này.
+data-goc/knth/
+data-goc/*DoiChieu-Cong-No*
+test/

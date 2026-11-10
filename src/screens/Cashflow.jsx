@@ -10,9 +10,11 @@ import { SKU_MAP, BASE_SUMMARY, STOCK_BY_SKU } from '../lib/metrics'
 import { trieu, num } from '../lib/format'
 import {
   fetchCashflow, pushCashflow, fetchCashflowLog, cashflowCache, cashflowMeta,
-  deviceName, setDeviceName,
+  deviceName, setDeviceName, fetchSales,
 } from '../lib/cloud'
 import { exportRowsXlsx } from '../lib/masterFile'
+import { doiChieu, xuatDoiChieu } from '../lib/doiChieu'
+import { tenNgan } from '../lib/formbits'
 import './cashflow.css'
 
 /* ============================================================
@@ -449,7 +451,8 @@ export default function Cashflow() {
 
       <div className="mk-tabbar">
         <div className="mk-tabs">
-          {[['plan', '▦', 'Kế hoạch theo tuần'], ['report', '◈', 'Báo cáo lãnh đạo']].map(([id, ic, lb]) => (
+          {[['plan', '▦', 'Kế hoạch theo tuần'], ['report', '◈', 'Báo cáo lãnh đạo'],
+            ['khach', '◉', 'Theo khách hàng']].map(([id, ic, lb]) => (
             <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
               <span className="ic" aria-hidden>{ic}</span>{lb}
             </button>
@@ -485,6 +488,8 @@ export default function Cashflow() {
       )}
 
       {tab === 'report' && <BaoCao d={d} bc={bc} ar={ar} ref0={ref} banTin={banTin} setMsg={setMsg} />}
+
+      {tab === 'khach' && <TheoKhach setMsg={setMsg} />}
 
       {tab === 'plan' && <>
       <div className="mk-kpis cf-kpis">
@@ -940,3 +945,170 @@ function BaoCao({ d, bc, ar, ref0, banTin, setMsg }) {
     </div>
   )
 }
+
+
+/* ============================================================
+   CÔNG NỢ THEO TỪNG KHÁCH HÀNG
+   Hai việc khác nhau trong một chỗ: xem nhanh ai đang nợ bao nhiêu,
+   và xuất đúng bảng đối chiếu đang gửi khách để họ ký xác nhận.
+   ============================================================ */
+function TheoKhach({ setMsg }) {
+  const [db, setDb] = useState(() => ({
+    customers: arFile.customers || [], deliveries: arFile.deliveries || [],
+    deliveryLines: arFile.deliveryLines || [], payments: arFile.payments || [],
+    orders: arFile.orders || [], orderLines: arFile.orderLines || [],
+  }))
+  const [chot, setChot] = useState(() => new Date().toISOString().slice(0, 10))
+  const [mo, setMo] = useState(null)
+  useEffect(() => { fetchSales().then(setDb).catch(() => {}) }, [])
+
+  const skuName = useMemo(
+    () => Object.fromEntries(master.skus.map(s => [s.sku, s.name])), [])
+
+  const bang = useMemo(() => (db.customers || []).map(c => {
+    const dc = doiChieu(c, db, chot)
+    dc.payments = (db.payments || []).filter(p => p.cust === c.code)
+    /* Hàng đã đặt nhưng CHƯA giao — chưa phải công nợ, nhưng là tiền sắp phải thu */
+    const chuaGiao = (db.orders || []).filter(o => o.cust === c.code).reduce((a, o) => {
+      const dat = (db.orderLines || []).filter(l => l.code === o.code)
+        .reduce((x, l) => x + (l.amount ?? Math.round(l.qty * l.price * (1 - (l.disc || 0)))), 0)
+      const giao = (db.deliveries || []).filter(v => v.don === o.code).reduce((x, v) => x + v.amount, 0)
+      return a + Math.max(0, dat - giao)
+    }, 0)
+    return { c, dc, chuaGiao }
+  }), [db, chot])
+
+  const tong = bang.reduce((a, b) => ({
+    phai: a.phai + b.dc.tong.phai, tra: a.tra + b.dc.tong.daTra,
+    con: a.con + b.dc.tong.conLai, qh: a.qh + b.dc.tong.quaHan,
+    chuaGiao: a.chuaGiao + b.chuaGiao,
+  }), { phai: 0, tra: 0, con: 0, qh: 0, chuaGiao: 0 })
+
+  async function xuat(b) {
+    try {
+      const ten = await xuatDoiChieu(b.c, b.dc, arFile.congTy || {}, skuName)
+      setMsg({ t: 'ok', s: `Đã tạo ${ten} — mở bằng Excel rồi gửi khách ký xác nhận.` })
+    } catch (e) { setMsg({ t: 'bad', s: `Không xuất được: ${e.message}` }) }
+  }
+
+  return (
+    <>
+      <section className="m2-panel">
+        <div className="m2-head">
+          <h3>Công nợ theo khách hàng</h3>
+          <span>
+            Số chốt đến ngày chọn bên phải. Tiền khách trả cấn trừ nợ cũ trước, VAT làm tròn
+            trên từng phiếu rồi mới cộng — đúng cách bảng đối chiếu đang gửi khách đang tính.
+          </span>
+          <div className="group-ctrl">
+            <label className="cf-inline">Chốt đến ngày
+              <input type="date" value={chot} onChange={e => setChot(e.target.value)} /></label>
+          </div>
+        </div>
+        <div className="m2-tablewrap">
+          <table className="cf-ref">
+            <thead>
+              <tr><th>Khách hàng</th><th className="num">Phiếu</th><th className="num">Phải thanh toán</th>
+                <th className="num">Đã trả</th><th className="num">Còn nợ</th>
+                <th className="num">Quá hạn</th><th className="num">Đặt chưa giao</th><th /></tr>
+            </thead>
+            <tbody>
+              {bang.map(b => (
+                <tr key={b.c.code}>
+                  <td className="sm" title={b.c.name}><b>{tenNgan(b.c.name, b.c.code)}</b>
+                    <i className="note">{b.c.code} · công nợ {b.dc.term} ngày · VAT
+                      {' '}{(b.dc.vatRate * 100).toFixed(0)}%{b.c.mst ? ` · MST ${b.c.mst}` : ''}</i></td>
+                  <td className="num">{b.dc.rows.length}</td>
+                  <td className="num">{trieu(b.dc.tong.phai, 1)}</td>
+                  <td className="num">{trieu(b.dc.tong.daTra, 1)}</td>
+                  <td className="num b">{trieu(b.dc.tong.conLai, 1)}</td>
+                  <td className={`num ${b.dc.tong.quaHan > 0 ? 'bad b' : ''}`}>
+                    {b.dc.tong.quaHan > 0 ? trieu(b.dc.tong.quaHan, 1) : '—'}</td>
+                  <td className="num">{b.chuaGiao > 0 ? trieu(b.chuaGiao, 1) : '—'}</td>
+                  <td className="sl-row-act">
+                    <button onClick={() => setMo(mo === b.c.code ? null : b.c.code)}>
+                      {mo === b.c.code ? 'Ẩn' : 'Chi tiết'}</button>
+                    <button onClick={() => xuat(b)}>⬇ Đối chiếu</button>
+                  </td>
+                </tr>
+              ))}
+              {!bang.length && <tr><td colSpan={8} className="cf-empty">Chưa có khách hàng nào.</td></tr>}
+            </tbody>
+            <tfoot>
+              <tr><td>CỘNG {bang.length} khách</td><td className="num">
+                {bang.reduce((a, b) => a + b.dc.rows.length, 0)}</td>
+                <td className="num">{trieu(tong.phai, 1)}</td>
+                <td className="num">{trieu(tong.tra, 1)}</td>
+                <td className="num">{trieu(tong.con, 1)}</td>
+                <td className={`num ${tong.qh > 0 ? 'bad' : ''}`}>{trieu(tong.qh, 1)}</td>
+                <td className="num">{trieu(tong.chuaGiao, 1)}</td><td /></tr>
+            </tfoot>
+          </table>
+        </div>
+        <p className="cf-note">
+          Đơn vị: triệu đồng. <b>Đặt chưa giao</b> chưa phải công nợ — hàng chưa ra khỏi kho nên
+          chưa được đòi tiền, nhưng nó là doanh thu và tiền sẽ về sau khi giao, nên để cạnh đây
+          cho dễ lên kế hoạch giao hàng theo nhu cầu tiền.
+        </p>
+      </section>
+
+      {mo && (() => {
+        const b = bang.find(x => x.c.code === mo)
+        return (
+          <section className="m2-panel">
+            <div className="m2-head">
+              <h3>{tenNgan(b.c.name, b.c.code)}</h3>
+              <span>{b.c.name}{b.c.mst ? ` · MST ${b.c.mst}` : ''} — từng phiếu xuất, chốt đến {chot}, cấn trừ nợ cũ trước</span>
+              <div className="group-ctrl">
+                <button onClick={() => xuat(b)}>⬇ Xuất bảng đối chiếu gửi khách</button>
+              </div>
+            </div>
+            <div className="m2-tablewrap">
+              <table className="cf-ref">
+                <thead>
+                  <tr><th>Ngày giao</th><th>Số phiếu</th><th>Đơn</th><th className="num">SL</th>
+                    <th className="num">Chưa VAT</th><th className="num">VAT</th>
+                    <th className="num">Phải thanh toán</th><th>Hạn thu</th>
+                    <th className="num">Đã trả</th><th className="num">Còn</th>
+                    <th className="num">Quá hạn</th><th>Tình trạng</th></tr>
+                </thead>
+                <tbody>
+                  {b.dc.rows.map(r => (
+                    <tr key={r.pxk}>
+                      <td className="sm">{r.d}</td>
+                      <td className="sm"><b>{r.pxk}</b></td>
+                      <td className="sm">{r.don || '—'}</td>
+                      <td className="num">{r.qty || 0}</td>
+                      <td className="num">{vn(r.amount)}</td>
+                      <td className="num">{vn(r.vat)}</td>
+                      <td className="num b">{vn(r.phai)}</td>
+                      <td className="sm">{r.han || '—'}</td>
+                      <td className="num">{r.tra ? vn(r.tra) : '—'}</td>
+                      <td className="num b">{r.conLai ? vn(r.conLai) : '—'}</td>
+                      <td className={`num ${r.quaHan > 0 ? 'bad b' : ''}`}>{r.quaHan || '—'}</td>
+                      <td className="sm">
+                        <span className={`sl-tag ${r.tinhTrang === 'QUÁ HẠN' ? 'off'
+                          : r.tinhTrang === 'Trong hạn' ? 'mid' : 'on'}`}>{r.tinhTrang}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr><td colSpan={3}>CỘNG PHÁT SINH</td>
+                    <td className="num">{b.dc.tong.qty}</td>
+                    <td className="num">{vn(b.dc.tong.amount)}</td>
+                    <td className="num">{vn(b.dc.tong.vat)}</td>
+                    <td className="num">{vn(b.dc.tong.phai)}</td><td />
+                    <td className="num">{vn(b.dc.tong.daTra)}</td>
+                    <td className="num">{vn(b.dc.tong.conLai)}</td><td colSpan={2} /></tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        )
+      })()}
+    </>
+  )
+}
+
+const vn = n => (n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '0')

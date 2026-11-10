@@ -241,3 +241,21 @@
   .bc-ket { border-left-width: 3px; }
 }
 .bc-don-i .kq .dim { color: var(--ink-3); font-weight: 600; }
+
+/* Nhãn + ô ngày nằm ngang trong thanh công cụ của panel */
+.cf-inline {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 10px; font-weight: 650; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+}
+.cf-inline input {
+  height: 27px; padding: 0 8px; border: 1px solid var(--line);
+  border-radius: var(--r-control); background: #fff; color: var(--ink);
+  font-size: 11.5px; font-family: inherit; font-weight: 500;
+  text-transform: none; letter-spacing: 0;
+}
+.cf-inline input:focus { outline: none; border-color: var(--blue); }
+.cf-ref i.note {
+  display: block; font-style: normal; font-size: 10px;
+  color: var(--ink-3); line-height: 1.4; margin-top: 1px;
+}

@@ -19,11 +19,14 @@ import Marketing from '../screens/Marketing'
 import Pnl from '../screens/Pnl'
 import Guide from '../screens/Guide'
 import Cashflow from '../screens/Cashflow'
+import Sales from '../screens/Sales'
+import Catalog from '../screens/Catalog'
+import Delivery from '../screens/Delivery'
 import Infra from '../screens/Infra'
 import CalendarScreen from '../screens/Calendar'
 import './shell.css'
 
-const NO_FILTER_PAGES = ['guide', 'infra', 'cashflow']
+const NO_FILTER_PAGES = ['guide', 'infra', 'cashflow', 'sales', 'catalog', 'delivery']
 
 function readHash() {
   const id = window.location.hash.replace('#/', '')
@@ -132,6 +135,9 @@ export default function AppShell({ onLogout }) {
               : page === 'forecast' ? <Forecast filters={filters} />
               : page === 'infra' ? <Infra />
               : page === 'cashflow' ? <Cashflow />
+              : page === 'sales' ? <Sales />
+              : page === 'catalog' ? <Catalog />
+              : page === 'delivery' ? <Delivery />
               : page === 'guide' ? <Guide />
               : <ScreenPlaceholder page={current} filters={filters} />}
           </ErrorBoundary>

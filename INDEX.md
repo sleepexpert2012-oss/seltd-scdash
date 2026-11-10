@@ -305,6 +305,47 @@ không ghi ngầm. Có Lịch sử thay đổi + nút Khôi phục.
 ⚠️ Khoá gọi đám mây là công khai (repo public). anon chỉ đọc/ghi được bảng tồn ảo,
 KHÔNG chạm được schema `shopee`. Muốn chặn hẳn thì cần Supabase Auth.
 
+## Bán hàng ngoài sàn — ba màn tách bạch (2026-11-10)
+Trước đây gom một chỗ, nay tách theo đúng nghiệp vụ, vì mỗi thứ sinh ra số khác nhau:
+
+| Màn | Nhóm menu | Sinh ra gì |
+|---|---|---|
+| **Bán hàng** (`src/screens/Sales.jsx`) | Bán hàng | Đơn khách đặt + tiền khách trả. Đơn là **cam kết**, chưa đụng tồn, chưa là công nợ |
+| **Phiếu xuất kho** (`src/screens/Delivery.jsx`) | Bán hàng | Hàng rời kho → **trừ tồn** (phiếu sau mốc kiểm kho) + **sinh công nợ phải thu** |
+| **Danh mục KH & NCC** (`src/screens/Catalog.jsx`) | Tài liệu & Hệ thống | Số ngày công nợ + thuế suất của khách — quyết định hạn thu của MỌI phiếu xuất |
+
+Ô nhập dùng chung: `src/lib/formbits.jsx` (`Money`, `SkuPick`, `tenNgan`).
+
+**Nối vào tồn kho**: `metrics.js → PXK_AFTER_BASE` lấy thẳng dòng hàng phiếu xuất
+sau `BASE_AS_OF` cộng vào `SOLD_OFFLINE_AFTER`. Không bắt khai lại ở bảng "bán
+ngoài sàn" — khai hai nơi thì sớm muộn hai nơi lệch nhau.
+
+**Nối vào dòng tiền**: Dòng tiền → tab **Theo khách hàng**. `src/lib/doiChieu.js`
+tính công nợ từng khách và xuất đúng file Excel đang gửi khách (2 sheet, phần A/B/C),
+**có đủ màu sắc và viền như mẫu**. Dùng `xlsx-js-style` chứ KHÔNG dùng `xlsx`:
+bản cộng đồng của `xlsx` ghi được dữ liệu nhưng **không ghi được style**.
+Bảng màu lấy từ file mẫu: navy `1F3864` (tiêu đề cột) · `D9E2F3` (dải A/B/C) ·
+`FFF2CC` (ô phải điền tay) · `E8E8E8` (dòng cộng) · `FCE4E4`/`9C0006` (khối số dư) ·
+`FBD5D5` (dòng quá hạn) · viền thin `BFBFBF` · font Arial 9.5.
+Sheet 2 tô xen kẽ **theo từng phiếu**, không theo dòng — một phiếu 5 dòng mà tô theo
+dòng thì bị cắt vụn thành 5 mảng.
+Nghiệm thu: `test/2026-11-10_doi-chieu-cong-no_format-excel/` — 0 ô lệch so với mẫu.
+
+### Hai quy ước bắt buộc giữ
+1. **VAT làm tròn trên TỪNG phiếu rồi mới cộng** — cộng trước rồi làm tròn lệch 1 đồng
+   so với bảng khách đang giữ.
+2. **Cộng/trừ ngày phải dùng UTC** (`Date.UTC` / `setUTCDate`). Dựng `Date` theo giờ
+   máy rồi `toISOString()` ở múi +7 làm lùi một ngày: hạn 05/09 ra 04/09, kéo theo
+   mọi số "quá hạn (ngày)" lệch 1.
+
+### Dữ liệu gốc đã nạp
+`data-goc/knth/` — 3 đơn hàng (.xlsx) + 7 phiếu xuất (.docx) của Kho Nệm Tổng Hợp.
+Nạp đơn: `scripts/shopee/load_orders.py KNTH data-goc/knth/DH00*.xlsx`.
+Ngày đơn lấy từ **tên file**, không lấy ô "Ngày:" — DH001 ghi 06/08/2026 nhưng Excel
+đã nuốt thành 08/06/2026.
+PXK007 không ghi giá, đơn giá lấy theo DH003 → 80.440.320, khớp đúng tổng 229.244.407.
+
+
 ## knowledge/ — thứ cần đọc lại sau này
 | File | Nội dung |
 |---|---|

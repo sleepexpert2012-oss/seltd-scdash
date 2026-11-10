@@ -57,11 +57,18 @@ def main():
                         "from public.supplier_debt_meta where id = 1")
         drows = rd(cur, "select code, name, debt::bigint from public.supplier_debt order by debt desc")
         # Công nợ PHẢI THU từ đại lý: phiếu xuất đã giao + đã thu + kế hoạch giao tiếp.
-        ar_c = rd(cur, "select code, name, term_days from public.ar_customer order by code")
-        ar_d = rd(cur, "select pxk, cust, d::text, amount::bigint, note from public.ar_delivery order by d")
-        ar_p = rd(cur, "select id, cust, d::text, amount::bigint, note from public.ar_payment order by d, id")
+        ar_c = rd(cur, "select code, name, term_days, vat_rate::float vat_rate, mst, addr, "
+                       "phone, email, note, active from public.ar_customer order by code")
+        ar_d = rd(cur, "select pxk, cust, d::text, amount::bigint, don, invoice_no, qty::float qty, note from public.ar_delivery order by d, pxk")
+        ar_p = rd(cur, "select id, cust, d::text, amount::bigint, method, doc_no, note from public.ar_payment order by d, id")
         ar_pl = rd(cur, "select id, cust, d_from::text, d_to::text, amount::bigint from public.ar_plan order by d_from")
         ar_m = rd(cur, "select as_of::text, updated_at::text, updated_by from public.ar_meta where id = 1")
+        ar_dl = rd(cur, "select pxk, sku, qty::float qty, price::bigint, amount::bigint, note "
+                        "from public.ar_delivery_line order by pxk, id")
+        ar_o  = rd(cur, "select code, cust, d::text, note, status from public.ar_order order by d, code")
+        ar_ol = rd(cur, "select code, sku, qty::float qty, price::bigint, disc::float disc, amount::bigint, note from public.ar_order_line order by code, id")
+        sup_x = rd(cur, "select code, name, mst, phone, email, addr, term_days, note, active "
+                        "from public.supplier_extra order by code")
         # --- Marketing Analysis ---
         mk_month = rd(cur, """
             select a.ym,
@@ -237,7 +244,13 @@ def main():
                  'note': ('Công nợ phải thu từ đại lý. Hạn thu = ngày giao + số ngày công nợ '
                           'của đại lý. Khoản đến hạn tuần nào rơi vào tuần đó ở màn Dòng tiền. '
                           'Phiếu xuất 0 đồng (hàng mẫu, chiết khấu 100%) không tạo khoản phải thu.')},
-        'customers': ar_c, 'deliveries': ar_d, 'payments': ar_p, 'plans': ar_pl}
+        'customers': ar_c, 'deliveries': ar_d, 'payments': ar_p, 'plans': ar_pl,
+        'deliveryLines': ar_dl, 'orders': ar_o, 'orderLines': ar_ol, 'suppliersExtra': sup_x,
+        'congTy': {
+            'ten': 'CÔNG TY TNHH SẢN XUẤT VÀ THƯƠNG MẠI SLEEP EXPERT',
+            'mst': '0318787420',
+            'diaChi': '15A Nguyễn Bá Tòng, P. Tân Sơn Nhì, TP. Hồ Chí Minh',
+        }}
 
     # các chỉ số tỷ lệ phải giữ đủ số lẻ, làm tròn 2 chữ số sẽ mất sạch (CTR 3,4% -> 0,03)
     RATE = {'ctr', 'cr', 'net_rate', 'tacos', 'ads_share', 'gm', 'fee_rate', 'acos'}
