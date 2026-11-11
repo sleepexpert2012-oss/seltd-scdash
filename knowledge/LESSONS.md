@@ -187,3 +187,8 @@ rồi dựng lại từng ô — không đoán màu bằng mắt.
   5. Regex Postgres: `\b` là ký tự backspace, ranh giới từ là `\y`.
   6. Chuyển trang qua menu mới sau HMR có thể không ăn (PAGES dựng lúc nạp module) → tải lại trang trước khi kết luận lỗi.
 - **Rule:** tỷ lệ "% đạt" chỉ dùng khi mẫu dương; mỗi chi phí chia cho doanh thu của kênh sinh ra nó; số người dùng nhập tay (tiền mặt thực tế) luôn thắng số nối từ kế hoạch; kiểm phạm vi dữ liệu của hàm có sẵn trước khi so.
+
+## 2026-11-12 · Thu nợ trong kế hoạch dòng tiền tuần thiếu VAT
+- **Sai:** `tinhAR()` lấy giá trị phiếu xuất CHƯA VAT làm tiền sẽ thu, trong khi khách trả có VAT 8% và tiền đã trả được cấn trừ trên số có VAT ở bản đối chiếu → thu nợ trong kế hoạch tuần thấp hơn thật 8% và lệch với tab Theo khách hàng.
+- **Sửa:** cộng VAT theo từng phiếu/tuần kế hoạch, giống `doiChieu.js`.
+- **Rule:** mọi chỗ nói "tiền sẽ thu" của khách ngoài sàn phải là số CÓ VAT; số "doanh thu" mới là chưa VAT. Hai khái niệm, không dùng lẫn trường `amount`.

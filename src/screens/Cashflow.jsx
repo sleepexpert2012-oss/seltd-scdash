@@ -165,14 +165,21 @@ export function tinhAR() {
     const t = new Date(iso + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n)
     return t.toISOString().slice(0, 10)
   }
-  const khoan = (arFile.deliveries || []).map(x => ({
-    ...x, han: addDays(x.d, term[x.cust] ?? 30), conLai: x.amount, loai: 'giao',
-  })).sort((a, b) => a.han.localeCompare(b.han))
+  /* Khách trả tiền CÓ VAT, nên khoản phải thu = giá trị hàng + VAT, làm tròn VAT
+     theo TỪNG phiếu (đúng như bản đối chiếu công nợ — doiChieu.js). Trước 12/11/2026
+     chỗ này lấy giá chưa VAT → thu nợ trong kế hoạch tuần thấp hơn thật 8%. */
+  const vat = Object.fromEntries((arFile.customers || []).map(c => [c.code, c.vat_rate ?? 0.08]))
+  const coVat = (cust, amount) => amount + Math.round(amount * (vat[cust] ?? 0.08))
+  const khoan = (arFile.deliveries || []).map(x => {
+    const phai = coVat(x.cust, x.amount)
+    return { ...x, phai, han: addDays(x.d, term[x.cust] ?? 30), conLai: phai, loai: 'giao' }
+  }).sort((a, b) => a.han.localeCompare(b.han))
 
   /* Kế hoạch giao tiếp theo -> phải thu DỰ KIẾN, hạn = cuối tuần giao + term */
   const duKien = (arFile.plans || []).map(x => ({
     pxk: `KH ${x.d_from.slice(8)}/${x.d_from.slice(5, 7)}`, cust: x.cust, d: x.d_to,
-    amount: x.amount, han: addDays(x.d_to, term[x.cust] ?? 30), conLai: x.amount, loai: 'kehoach',
+    amount: x.amount, phai: coVat(x.cust, x.amount), han: addDays(x.d_to, term[x.cust] ?? 30),
+    conLai: coVat(x.cust, x.amount), loai: 'kehoach',
   })).sort((a, b) => a.han.localeCompare(b.han))
 
   let daThu = (arFile.payments || []).reduce((a, p) => a + (p.amount || 0), 0)
@@ -187,8 +194,8 @@ export function tinhAR() {
   const quaHan = khoan.filter(k => k.conLai > 0 && k.han < homNay)
   return {
     tenKH, khoan, duKien, thuTong, conPhaiThu,
-    daGiao: khoan.reduce((a, k) => a + k.amount, 0),
-    keHoach: duKien.reduce((a, k) => a + k.amount, 0),
+    daGiao: khoan.reduce((a, k) => a + k.phai, 0),        // gồm VAT
+    keHoach: duKien.reduce((a, k) => a + k.phai, 0),      // gồm VAT
     quaHan, quaHanTien: quaHan.reduce((a, k) => a + k.conLai, 0),
     asOf: arFile.meta?.as_of || null,
     /* Khoản còn lại theo tuần đến hạn — đây là thứ nối vào bảng dòng tiền */
@@ -337,7 +344,7 @@ export default function Cashflow() {
     L.push('', `II. HÀNG TỒN KHO: ${tr(ref.tonValue)} ${ref.chenh < 0 ? 'âm' : 'dư'} ${tr(Math.abs(ref.chenh))}/ công nợ ncc`)
     L.push('', `III. CÔNG NỢ PHẢI THU: ${tr(ar.conPhaiThu)}`)
     if (ar.quaHanTien > 0) L.push(`   - Quá hạn: ${tr(ar.quaHanTien)} (${ar.quaHan.length} phiếu)`)
-    if (ar.keHoach > 0) L.push(`   - Kế hoạch giao tiếp: ${tr(ar.keHoach)}`)
+    if (ar.keHoach > 0) L.push(`   - Kế hoạch giao tiếp (gồm VAT): ${tr(ar.keHoach)}`)
     return L.join('\n')
   }, [d, ref, NCC, ar])
 
@@ -755,7 +762,7 @@ export default function Cashflow() {
           </span>
         </div>
         <div className="cf-kv cf-kv4">
-          <div><span>Đã giao</span><b>{trieu(ar.daGiao, 1)} tr</b></div>
+          <div><span>Đã giao (gồm VAT)</span><b>{trieu(ar.daGiao, 1)} tr</b></div>
           <div className="good"><span>Đã thu</span><b>{trieu(ar.thuTong, 1)} tr</b></div>
           <div><span>Còn phải thu</span><b>{trieu(ar.conPhaiThu, 1)} tr</b></div>
           <div className={ar.quaHanTien > 0 ? 'bad' : ''}>
@@ -781,7 +788,7 @@ export default function Cashflow() {
           <table className="cf-ref">
             <thead>
               <tr><th>Phiếu / kế hoạch</th><th>Khách</th><th>Ngày giao</th><th>Hạn thu</th>
-                <th className="num">Giá trị</th><th className="num">Còn phải thu</th><th>Tình trạng</th></tr>
+                <th className="num">Giá trị hàng</th><th className="num">Phải thu (gồm VAT)</th><th className="num">Còn phải thu</th><th>Tình trạng</th></tr>
             </thead>
             <tbody>
               {[...ar.khoan, ...ar.duKien].map(k => {
@@ -795,6 +802,7 @@ export default function Cashflow() {
                     <td className="sm">{k.d.slice(8)}/{k.d.slice(5, 7)}</td>
                     <td className="sm">{k.han.slice(8)}/{k.han.slice(5, 7)}</td>
                     <td className="num">{trieu(k.amount, 1)}</td>
+                    <td className="num">{trieu(k.phai, 1)}</td>
                     <td className={`num${qh ? ' neg' : ''}`}>{k.conLai ? trieu(k.conLai, 1) : '—'}</td>
                     <td className="sm">
                       {xong ? <span className="ar-tag done">đã thu</span>
