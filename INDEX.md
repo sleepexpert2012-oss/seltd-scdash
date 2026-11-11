@@ -352,3 +352,52 @@ PXK007 không ghi giá, đơn giá lấy theo DH003 → 80.440.320, khớp đún
 | `knowledge/2026-09-08_dong-bo-dut-ma-app-bao-binh-thuong.md` | Chẩn đoán 4 lỗi làm đồng bộ đứng mà app vẫn báo "Bình thường"; chuyển ETL sang GitHub Actions; token Shopee vào bảng `shopee.oauth_token` |
 | `knowledge/2026-09-08_audit-toan-bo-app.md` | **Audit toàn app**: 3 lỗi thật đã sửa (doanh thu ngày thiếu voucher · chi phí ads hai mẫu số · kho hàng lỗi tính là hàng bán được), 4 điểm cần biết, bẫy khi audit |
 | `knowledge/LESSONS.md` | Bài học dồn theo ngày — mỗi entry: việc · sai gì · sửa gì · rule rút ra |
+
+## Bộ prompt dựng thêm chức năng quản trị (2026-11-10)
+
+Sinh từ việc phân tích video một sản phẩm báo cáo quản trị của bên khác. Mỗi prompt chạy trong một phiên Claude Code mới, mỗi lượt một màn, chờ duyệt.
+
+| Đường dẫn | Vai trò |
+|---|---|
+| `reference/2026-11-10_phan-tich-video-hcw-plan.md` | Phân tích 9 chức năng trong video, đối chiếu với app, thứ tự chạy |
+| `reference/hcw-plan/` | 19 khung hình tham khảo — **không đẩy lên repo** (đã thêm vào `.gitignore`) |
+| `prompts/active/00_NEN-CHUNG_doc-truoc-moi-prompt.md` | Quy tắc chung, mọi prompt P0–P8 đều yêu cầu đọc trước |
+| `prompts/done/P0_ke-hoach-ngan-sach.md` | ĐÃ CHẠY 11/11 (OK). Lớp nền: ngân sách tháng + chi phí ngoài sàn + cố định/biến đổi |
+| `prompts/done/P1_lai-lo_ke-hoach-vs-thuc-dat.md` | ĐÃ CHẠY 11/11 (OK). Tab mới ở Lãi lỗ: kế hoạch vs thực đạt, vì sao lệch (cần P0) |
+| `prompts/done/P2_dong-tien-12-thang_von-luu-dong.md` | ĐÃ CHẠY 11/11 (OK). Dòng tiền theo tháng, tốc độ đốt tiền, chu kỳ tiền mặt |
+| `prompts/done/P3_dinh-muc-chi-phi.md` | ĐÃ CHẠY 11/11 (OK). Trần % trên doanh thu, khoản vượt trần (cần P0) |
+| `prompts/done/P4_diem-hoa-von.md` | ĐÃ CHẠY 11/11 (OK). Điểm hòa vốn, biên an toàn, ROAS hòa vốn (cần P0) |
+| `prompts/done/P5_du-bao-ban_chot-ban_doi-chieu.md` | ĐÃ CHẠY 11/11 (OK). Chốt bản dự báo và đo sai số so thực tế |
+| `prompts/done/P6_bao-cao-dieu-hanh_nhan-xet-tu-dong.md` | ĐÃ CHẠY 11/11 (OK). Bộ quy tắc nhận xét tự động + báo cáo in/xuất |
+| `prompts/active/P7_tinh-hinh-tai-chinh.md` | Bảng cân đối, thẻ điểm sức khỏe — chặn đến khi có số kế toán |
+| `prompts/done/P8_chien-luoc-va-kpi.md` | ĐÃ CHẠY 11/11 — chỉ cấp phòng ban (theo quyết định). Bản đồ chiến lược, KPI — chặn đến khi quyết về quyền truy cập |
+
+### Màn hình 17 — Kế hoạch & Ngân sách (2026-11-11, bảng đã tạo trên Supabase, code chưa push)
+
+| Đường dẫn | Vai trò |
+|---|---|
+| `scripts/shopee/schema_fin.sql` | Bảng `fin_line` · `fin_plan_version` · `fin_plan` · `fin_actual` · `fin_log` + hàm ghi `save_fin_*`. Đã chạy lên Supabase 11/11 |
+| `src/lib/fin.js` | Hàm thuần: số thực tế tự tính theo khoản × tháng (cùng cách tính màn Lãi lỗ), ngân sách, tổng nhóm & lợi nhuận, độ phủ dữ liệu, đọc số gõ/dán |
+| `src/screens/Budget.jsx` + `budget.css` | Nhóm Tài chính · 3 tab: Ngân sách (lưới 12 tháng, phiên bản, dán Excel) · Chi phí thực tế (khoản nhập tay) · Khoản mục |
+| `src/lib/cloud.js` (cuối file) | `fetchFin`, `saveFin*` — đọc theo trang 1.000 dòng |
+| `test/2026-11-10_ngan-sach-lop-nen_P0/` | Kiểm số tự tính (0 lệch) + kiểm giao diện bằng giả lập |
+
+### Các màn & tab dựng từ P1–P6 (2026-11-11, code chưa push)
+
+| Đường dẫn | Vai trò |
+|---|---|
+| `src/screens/PnlPlan.jsx` | Tab **Kế hoạch vs Thực đạt** trong màn Lãi lỗ: lũy kế, dự báo cả năm, vì sao lệch, 3 biểu đồ, Excel |
+| `src/screens/CostNorm.jsx` + `costnorm.css` | **Màn 18 — Định mức chi phí** (nhóm Tài chính): trần %, tiêu hao ngân sách, tiền vượt, 4 tỷ lệ sàn, xu hướng, cơ cấu |
+| `src/screens/BreakEven.jsx` + `breakeven.css` | **Màn 19 — Điểm hòa vốn** (nhóm Tài chính): CM%, hòa vốn, biên an toàn, ROAS hòa vốn, đơn/ngày, 3 thanh trượt kịch bản |
+| `src/screens/Cashflow.jsx` (TheoThang, VonLuuDong) | Màn Dòng tiền thêm tab **Theo tháng** (quỹ tối thiểu, tốc độ đốt tiền) và **Vốn lưu động** (CCC = DIO + DSO − DPO). Hàm `tinhTuan`, `tinhAR`, `chayKeHoachTuan` tách ra dùng chung |
+| `src/screens/ForecastSnap.jsx` + `fcsnap.css` · `src/lib/fcSnap.js` | Màn Forecast thêm tab **Bản dự báo** (chốt bản, khoá ở DB) và **Đối chiếu dự báo** (WAPE, bias, tỷ lệ trúng, so cách đoán ngây thơ) |
+| `src/screens/Report.jsx` + `report.css` · `src/lib/insights.js` | **Màn 20 — Báo cáo điều hành** (nhóm mới "Báo cáo"): 15 quy tắc nhận xét tất định, nhận định người viết, bản gộp, in A4, Excel, lưu đóng băng |
+| `src/lib/fin.js` | Thêm: `compare`, `monthlyTotals`, `costNorm`, `platformMonthly`, `beCalc`/`adsBreakEven`, `workingCapital`/`arHistory` |
+| `src/lib/xlsxBang.js` | Xuất Excel có định dạng dùng chung cho các màn tài chính (cùng bảng màu bản đối chiếu) |
+| `scripts/shopee/schema_wc.sql` | `cf_setting` (quỹ tối thiểu) + `wc_snapshot` (ảnh chụp vốn lưu động mỗi tháng). Đã chạy Supabase 11/11 |
+| `scripts/shopee/schema_fc.sql` | `fc_snapshot`, `fc_snapshot_line`, `fc_log` + trigger khoá bản đã chốt. Đã chạy Supabase 11/11 |
+| `scripts/shopee/schema_report.sql` | `report_doc` — báo cáo điều hành đã lưu. Đã chạy Supabase 11/11 |
+| `test/2026-11-11_*_P1…P6/` | Hồ sơ kiểm thử từng phần |
+| `src/screens/Strategy.jsx` + `strategy.css` · `src/lib/kpi.js` | **Màn 21 — Chiến lược & KPI** (nhóm mới "Chiến lược"), CẤP PHÒNG BAN: bản đồ BSC có mũi tên nhân–quả, thư viện KPI (7 KPI tự động nối số các màn), phòng ban, giao KPI + trọng số, theo dõi & xếp hạng phòng |
+| `scripts/shopee/schema_kpi.sql` | `kpi_dept`, `kpi_objective`, `kpi_def`, `kpi_assign`, `kpi_value`, `kpi_log` — KHÔNG có bảng nhân sự. Đã chạy Supabase 11/11 |
+| `prompts/active/P7_tinh-hinh-tai-chinh.md` | Chưa chạy: chờ file bảng cân đối kế toán |

@@ -181,3 +181,64 @@
   .pl-row2 { grid-template-columns: 1fr !important; }
   .pl-wf svg { min-width: 0 !important; }
 }
+
+/* ===== Tab Kế hoạch vs Thực đạt (PnlPlan.jsx) ===== */
+.pp-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pp-bar > label { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted); }
+.pp-bar select {
+  height: 28px; border: 1px solid var(--border-input); border-radius: var(--r-control);
+  background: #fff; padding: 0 8px; font-size: 11.5px; color: var(--ink);
+}
+.pp-bar .sp { flex: 1 1 auto; }
+.pp-chips { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+.pp-chips > span { font-size: 10.5px; color: var(--muted); margin-right: 4px; }
+.pp-chips button {
+  min-width: 34px; height: 26px; border: 1px solid var(--line); background: #fff; border-radius: 5px;
+  font-size: 10.5px; font-weight: 650; color: var(--ink-3); cursor: pointer;
+}
+.pp-chips button.in { background: #E6E8F7; color: var(--blue); border-color: #C9CDEE; }
+.pp-chips button.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+.pp-chips button:disabled { opacity: .4; cursor: default; }
+.pp-chk { display: inline-flex !important; align-items: center; gap: 6px; color: var(--ink-2) !important; font-size: 11px !important; cursor: pointer; }
+.pp-btn {
+  height: 28px; padding: 0 11px; font-size: 11px; font-weight: 600; border-radius: var(--r-control);
+  border: 1px solid var(--line); background: #fff; color: var(--ink-2); cursor: pointer;
+}
+.pp-btn:hover { background: var(--surface-tint); color: var(--ink); }
+.pp-scope { margin: 9px 0 0; font-size: 10.5px; color: var(--muted); }
+.pp-scope b { color: var(--ink-2); }
+.pp-empty h3 { margin: 0 0 6px; font-size: 13px; color: var(--ink); }
+.pp-empty p { margin: 0; font-size: 11.5px; line-height: 1.6; color: var(--ink-2); }
+.pl-page a { color: var(--blue); font-weight: 600; }
+.pp-flag { font-style: normal; color: var(--bad); font-weight: 650; }
+
+.pp-wrap { overflow-x: auto; }
+.pp-table td.lbl { min-width: 260px; }
+.pp-table td.num.good { color: var(--good); font-weight: 600; }
+.pp-table td.num.bad { color: var(--bad); font-weight: 600; }
+.pp-table td.num.dim { color: var(--ink-3); }
+.pp-table tr.grp td { background: var(--surface-tint); font-weight: 700; color: var(--ink); }
+.pp-table tr.child td.lbl { padding-left: 26px; color: var(--ink-2); }
+.pp-table tr.der td { background: #EEF0FA; font-weight: 750; color: var(--navy); border-top: 1px solid var(--line); }
+.pp-tog { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-transform: uppercase; font-size: 10.5px; letter-spacing: .04em; }
+.pp-auto, .pp-miss { font-style: normal; font-size: 9.5px; margin-left: 6px; }
+.pp-auto { color: #9A5B06; }
+.pp-miss { color: var(--bad); font-weight: 700; }
+
+.pp-why { display: flex; flex-direction: column; gap: 4px; }
+.pp-wrow { display: grid; grid-template-columns: minmax(180px, 290px) 1fr 110px minmax(150px, 210px); align-items: center; gap: 10px; font-size: 11.5px; }
+.pp-wrow .nm { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-wrow .bar { position: relative; height: 14px; }
+.pp-wrow .bar::before { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line); }
+.pp-wrow .bar i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.pp-wrow .bar i.pos { left: 50%; background: var(--good); }
+.pp-wrow .bar i.neg { right: 50%; background: var(--bad); }
+.pp-wrow b { text-align: right; font-variant-numeric: tabular-nums; }
+.pp-wrow b.good { color: var(--good); }
+.pp-wrow b.bad { color: var(--bad); }
+.pp-wrow small { font-size: 10px; color: var(--ink-3); }
+.pp-wrow.dim .nm { color: var(--ink-3); font-style: italic; }
+.pp-wrow.tot { border-top: 1.5px solid var(--line); padding-top: 6px; margin-top: 4px; }
+.pp-wrow.tot .nm { font-weight: 750; color: var(--ink); }
+@media (max-width: 900px) { .pp-wrow { grid-template-columns: 1fr 90px; } .pp-wrow .bar, .pp-wrow small { display: none; } }
+.mk-verdict p strong { color: var(--ink); font-weight: 750; }

@@ -11,6 +11,7 @@ import {
 } from '../lib/metrics'
 import { trieu, num, pct } from '../lib/format'
 import { useDrill } from '../app/drill'
+import { SnapTab, MatchTab } from './ForecastSnap'
 import './forecast.css'
 
 const C = { act: '#353E99', fc: '#A9AFE0', line: '#8E93B5', grid: '#E7E9F3', axis: '#8E93B5' }
@@ -224,7 +225,7 @@ export default function Forecast({ filters }) {
       </div>
 
       <div className="m2-tabs">
-        {[['order', '📦', 'Kế hoạch đặt hàng'], ['sop', '⚖', 'Hoạch định cung ứng (S&OP)'], ['next6', '📈', 'Dự báo 6 tháng tới'], ['method', 'ⓘ', 'Phương pháp & hệ số']].map(([k, ic, l]) => (
+        {[['order', '📦', 'Kế hoạch đặt hàng'], ['sop', '⚖', 'Hoạch định cung ứng (S&OP)'], ['next6', '📈', 'Dự báo 6 tháng tới'], ['snap', '🔒', 'Bản dự báo'], ['fcmatch', '◎', 'Đối chiếu dự báo'], ['method', 'ⓘ', 'Phương pháp & hệ số']].map(([k, ic, l]) => (
           <button key={k} className={'m2-tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>
             <i className="tab-ic">{ic}</i>{l}
           </button>
@@ -337,6 +338,8 @@ export default function Forecast({ filters }) {
         </div>
       )}
 
+      {tab === 'snap' && <SnapTab />}
+      {tab === 'fcmatch' && <MatchTab />}
       {tab === 'method' && <Method d={d} remain={remain} />}
     </>
   )

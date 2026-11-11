@@ -259,3 +259,31 @@
   display: block; font-style: normal; font-size: 10px;
   color: var(--ink-3); line-height: 1.4; margin-top: 1px;
 }
+
+/* ===== tab Theo tháng + Vốn lưu động ===== */
+.cf-mbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cf-mbar select { height: 28px; border: 1px solid var(--border-input); border-radius: var(--r-control); background: #fff; font-size: 11.5px; padding: 0 8px; }
+.cf-mbar .btn-ghost { height: 28px; padding: 0 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--line); border-radius: var(--r-control); cursor: pointer; }
+.cf-mnote { font-size: 10.5px; color: var(--muted); }
+.cf-mnote.warn { color: #9A5B06; font-weight: 600; }
+.cf-kpis4 { grid-template-columns: repeat(4, 1fr); }
+.cf-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media (max-width: 1000px) { .cf-row2 { grid-template-columns: 1fr; } }
+.cf-ref tr.dim td { color: var(--ink-3); }
+.cf-ref td.neg { color: var(--bad); }
+.cf-ref td.sm { font-size: 10.5px; line-height: 1.5; color: var(--ink-2); max-width: 520px; }
+.cf-page .mk-verdict p strong { color: var(--ink); font-weight: 750; }
+
+.cf-ccc { display: grid; grid-template-columns: minmax(300px, 1fr) 1.3fr; gap: 14px; margin-bottom: 14px; }
+.cf-ccc > div { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); padding: 14px 16px; box-shadow: var(--sh-panel); }
+.cf-ccc .big { border: 2px solid var(--navy); }
+.cf-ccc .big span { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.cf-ccc .big b { display: block; font-size: 34px; font-weight: 800; color: var(--navy); margin: 4px 0; letter-spacing: -.02em; }
+.cf-ccc .big small { display: block; font-size: 10.5px; color: var(--ink-2); }
+.cf-ccc .big p { margin: 6px 0 0; font-size: 10.5px; color: var(--muted); }
+.cf-ccc .bars { display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.cf-ccc .bars > div { display: grid; grid-template-columns: 120px 1fr 70px; align-items: center; gap: 10px; font-size: 11.5px; color: var(--ink-2); }
+.cf-ccc .bars i { height: 12px; background: var(--surface-tint); border-radius: 6px; overflow: hidden; }
+.cf-ccc .bars i em { display: block; height: 100%; border-radius: 6px; }
+.cf-ccc .bars b { text-align: right; color: var(--ink); }
+@media (max-width: 900px) { .cf-ccc { grid-template-columns: 1fr; } }

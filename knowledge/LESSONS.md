@@ -170,3 +170,20 @@ rồi dựng lại từng ô — không đoán màu bằng mắt.
   đừng ước lượng từ ảnh chụp.
 - **Nghiệm thu file xuất bằng cách mở lại và so từng ô với mẫu**, cả giá trị lẫn style.
 - Tô xen kẽ bảng chi tiết phải theo **cụm nghiệp vụ** (từng phiếu), không theo dòng.
+
+## 2026-11-11 · P0 Kế hoạch & Ngân sách
+- **Việc:** dựng lớp ngân sách + chi phí thực tế nhập tay (`fin_*`, `src/lib/fin.js`, màn Kế hoạch & Ngân sách).
+- **Sai suýt mắc:** (1) dòng `ads` của Dòng tiền gộp cả Shopee Ads lẫn tiếp thị ngoài — đưa thẳng vào chi phí là đếm hai lần quảng cáo Shopee; đã tách `ads_shopee` (tự tính) và `ads` (chỉ phần ngoài Shopee). (2) Ô nhập theo "triệu" mà gõ số đồng đầy đủ ra 52.300 tỷ không báo gì. (3) Dòng tổng hiện 0 khi chưa có số nào → người đọc tưởng lợi nhuận bằng 0. (4) Bắt nhập thuế TNDN hằng tháng thì không tháng nào "đủ chi phí".
+- **Sửa:** tách khoản; hỏi lại khi một ô ≥ 100 tỷ; ô/tổng không có số để trống, không ghi 0; loại thuế khỏi phép kiểm đủ tháng.
+- **Rule:** dữ liệu nhập tay phân biệt "chưa có số" (null) với "0" ở MỌI tầng — DB (không có dòng), hàm tính (null), giao diện (ô trống, nhãn "chưa nhập"). Supabase REST cắt ở 1.000 dòng không báo lỗi → bảng có thể vượt ngưỡng phải đọc theo trang.
+
+## 2026-11-11 · P1–P6 lớp quản trị tài chính
+- **Việc:** dựng Kế hoạch vs Thực đạt, Định mức chi phí, Điểm hòa vốn, Dòng tiền theo tháng + Vốn lưu động, Bản dự báo chốt, Báo cáo điều hành.
+- **Sai suýt mắc:**
+  1. % đạt khi kế hoạch âm: KH lỗ −655 mà thực tế lỗ −751 ra "đạt 115%" — đọc như vượt kế hoạch.
+  2. Mẫu số chung cho mọi chi phí: giá vốn Shopee chia doanh thu toàn công ty ra 45% thay vì 63%.
+  3. Nối số dư dòng tiền liên tục từ tuần đầu, bỏ qua tuần người dùng đã nhập tiền mặt thực tế → số dư −744 tr trong khi thật là 16,8 tr.
+  4. Prompt giả định `SKU_DEMAND` gồm bán ngoài sàn — thực ra chỉ Shopee; so dự báo với cả ngoài sàn là lệch phạm vi.
+  5. Regex Postgres: `\b` là ký tự backspace, ranh giới từ là `\y`.
+  6. Chuyển trang qua menu mới sau HMR có thể không ăn (PAGES dựng lúc nạp module) → tải lại trang trước khi kết luận lỗi.
+- **Rule:** tỷ lệ "% đạt" chỉ dùng khi mẫu dương; mỗi chi phí chia cho doanh thu của kênh sinh ra nó; số người dùng nhập tay (tiền mặt thực tế) luôn thắng số nối từ kế hoạch; kiểm phạm vi dữ liệu của hàm có sẵn trước khi so.

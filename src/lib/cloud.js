@@ -184,3 +184,156 @@ export async function fetchSales() {
     ])
   return { customers, deliveries, deliveryLines, payments, orders, orderLines, suppliersExtra }
 }
+
+/* ============================================================
+   KẾ HOẠCH & NGÂN SÁCH (bảng fin_*)
+   Cùng cơ chế: anon chỉ ĐỌC, mọi ghi qua hàm save_fin_*() và luôn ghi fin_log.
+   Đọc theo trang 1.000 dòng: Supabase cắt mọi truy vấn ở 1.000 dòng mà KHÔNG
+   báo lỗi — 4 phiên bản × 12 tháng × 20 khoản đã chạm ngưỡng đó.
+   ============================================================ */
+async function reqAll(path, page = 1000) {
+  const out = []
+  for (let off = 0; ; off += page) {
+    const rows = (await req(`${path}&limit=${page}&offset=${off}`)) || []
+    out.push(...rows)
+    if (rows.length < page) return out
+  }
+}
+
+export async function fetchFin() {
+  const [lines, versions, plan, actual] = await Promise.all([
+    req('/fin_line?select=code,name,grp,behavior,source,cap_pct,sort,active,note,updated_at,updated_by&order=sort,code'),
+    req('/fin_plan_version?select=version,name,year,is_current,note,created_at,created_by&order=year.desc,created_at'),
+    reqAll('/fin_plan?select=version,ym,line,amount,updated_at,updated_by&order=version,ym,line'),
+    reqAll('/fin_actual?select=ym,line,amount,note,updated_at,updated_by&order=ym,line'),
+  ])
+  return { lines: lines || [], versions: versions || [], plan, actual }
+}
+
+const one = r => (Array.isArray(r) ? r[0] : r)
+
+export async function saveFinLine(p, actor = deviceName()) {
+  return req('/rpc/save_fin_line', { method: 'POST', body: { p, actor } })
+}
+export async function saveFinVersion(p, cloneFrom = null, actor = deviceName()) {
+  return one(await req('/rpc/save_fin_version', { method: 'POST', body: { p, clone_from: cloneFrom, actor } }))
+}
+export async function setFinCurrentVersion(version, actor = deviceName()) {
+  return req('/rpc/set_fin_current_version', { method: 'POST', body: { p_version: version, actor } })
+}
+/* cells = [{ ym, line, amount }] — amount null là xoá ô */
+export async function saveFinPlan(version, cells, actor = deviceName()) {
+  return one(await req('/rpc/save_fin_plan', { method: 'POST', body: { p_version: version, cells, actor } }))
+}
+export async function saveFinActual(cells, actor = deviceName()) {
+  return one(await req('/rpc/save_fin_actual', { method: 'POST', body: { cells, actor } }))
+}
+export async function fetchFinLog(limit = 30) {
+  return (await req(`/fin_log?select=id,at,actor,action,n,payload&order=id.desc&limit=${limit}`)) || []
+}
+
+/* ============================================================
+   DÒNG TIỀN THEO THÁNG + VỐN LƯU ĐỘNG (bảng cf_setting, wc_snapshot)
+   Bảng chưa tạo (chưa chạy schema_wc.sql) → hàm đọc trả về null để màn
+   dùng bản lưu tại máy và nói rõ là chưa lưu chung.
+   ============================================================ */
+const missingTable = e => /PGRST20[25]|does not exist|Could not find|404/.test(String(e?.message || e))
+
+export async function fetchCfSetting(key) {
+  try {
+    const r = await req(`/cf_setting?select=value,updated_at,updated_by&key=eq.${encodeURIComponent(key)}`)
+    return { ok: true, row: r?.[0] || null }
+  } catch (e) {
+    if (missingTable(e)) return { ok: false, row: null }
+    throw e
+  }
+}
+export async function setCfSetting(key, value, actor = deviceName()) {
+  return req('/rpc/set_cf_setting', { method: 'POST', body: { p_key: key, p_value: value, actor } })
+}
+export async function fetchWcSnapshots() {
+  try {
+    return { ok: true, rows: (await req('/wc_snapshot?select=ym,as_of,data,updated_at,updated_by&order=ym')) || [] }
+  } catch (e) {
+    if (missingTable(e)) return { ok: false, rows: [] }
+    throw e
+  }
+}
+export async function saveWcSnapshot(ym, asOf, data, actor = deviceName()) {
+  return req('/rpc/save_wc_snapshot', { method: 'POST', body: { p_ym: ym, p_as_of: asOf, p_data: data, actor } })
+}
+
+/* ============================================================
+   BẢN DỰ BÁO ĐÃ CHỐT (bảng fc_*)
+   ============================================================ */
+export async function fetchFcSnapshots() {
+  try {
+    return { ok: true, rows: (await req('/fc_snapshot?select=*&order=created_at.desc')) || [] }
+  } catch (e) {
+    if (missingTable(e)) return { ok: false, rows: [] }
+    throw e
+  }
+}
+export async function fetchFcLines(id) {
+  return reqAll(`/fc_snapshot_line?select=sku,ym,qty_calc,qty,price,cost&snapshot_id=eq.${Number(id)}&order=sku,ym`)
+}
+export async function createFcSnapshot(p, lines, actor = deviceName()) {
+  return req('/rpc/create_fc_snapshot', { method: 'POST', body: { p, lines, actor }, timeout: 30000 })
+}
+export async function saveFcLines(id, cells, actor = deviceName()) {
+  return req('/rpc/save_fc_lines', { method: 'POST', body: { p_id: id, cells, actor } })
+}
+export async function lockFcSnapshot(id, actor = deviceName()) {
+  return req('/rpc/lock_fc_snapshot', { method: 'POST', body: { p_id: id, actor } })
+}
+export async function cloneFcSnapshot(id, name, actor = deviceName()) {
+  return req('/rpc/clone_fc_snapshot', { method: 'POST', body: { p_id: id, p_name: name, actor } })
+}
+export async function delFcSnapshot(id, actor = deviceName()) {
+  return req('/rpc/del_fc_snapshot', { method: 'POST', body: { p_id: id, actor } })
+}
+
+/* ============================================================
+   BÁO CÁO ĐIỀU HÀNH ĐÃ LƯU (bảng report_doc)
+   ============================================================ */
+export async function fetchReports() {
+  try {
+    return { ok: true, rows: (await req('/report_doc?select=id,name,period_from,period_to,compare,note_html,hidden_ids,snapshot_json,saved_by,saved_at&order=saved_at.desc')) || [] }
+  } catch (e) {
+    if (missingTable(e)) return { ok: false, rows: [] }
+    throw e
+  }
+}
+export async function saveReport(p, actor = deviceName()) {
+  return req('/rpc/save_report_doc', { method: 'POST', body: { p, actor } })
+}
+export async function delReport(id, actor = deviceName()) {
+  return req('/rpc/del_report_doc', { method: 'POST', body: { p_id: id, actor } })
+}
+
+/* ============================================================
+   CHIẾN LƯỢC & KPI — cấp phòng ban (bảng kpi_*)
+   ============================================================ */
+export async function fetchKpi() {
+  try {
+    const [depts, objs, defs, assigns, values] = await Promise.all([
+      req('/kpi_dept?select=*&order=sort,code'),
+      req('/kpi_objective?select=*&order=sort,id'),
+      req('/kpi_def?select=*&order=source,code'),
+      req('/kpi_assign?select=*&order=id'),
+      reqAll('/kpi_value?select=assign_id,ym,target,actual&order=assign_id,ym'),
+    ])
+    return { ok: true, depts: depts || [], objs: objs || [], defs: defs || [], assigns: assigns || [], values }
+  } catch (e) {
+    if (missingTable(e)) return { ok: false, depts: [], objs: [], defs: [], assigns: [], values: [] }
+    throw e
+  }
+}
+const rpcKpi = fn => (p, actor = deviceName()) => req(`/rpc/${fn}`, { method: 'POST', body: { p, actor } })
+export const saveKpiDept = rpcKpi('save_kpi_dept')
+export const saveKpiObjective = rpcKpi('save_kpi_objective')
+export const saveKpiDef = rpcKpi('save_kpi_def')
+export const saveKpiAssign = rpcKpi('save_kpi_assign')
+export async function saveKpiValues(cells, actor = deviceName()) {
+  return req('/rpc/save_kpi_values', { method: 'POST', body: { cells, actor } })
+}

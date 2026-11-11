@@ -1,0 +1,37 @@
+/* Màn Chiến lược & KPI — st-* (dùng lại bg-*, sl-*, pp-*, cn-*) */
+.st-page > section, .st-page > .cf-msg, .st-page > .pl-warn, .st-page > .mk-kpis, .st-page > .pl-row2 { margin-bottom: 14px; }
+.st-page > .m2-title { display: flex; align-items: flex-start; gap: 16px; }
+.st-page > .m2-title > div:first-child { flex: 1; min-width: 0; }
+.st-row2 { display: grid; }
+.st-map { position: relative; display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.st-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+.st-arrows path { fill: none; stroke: #232A6B; stroke-width: 1.4; opacity: .7; }
+.st-band { border-radius: var(--r-panel); padding: 10px 12px 12px; border: 1px solid var(--line); }
+.st-band.b-tai_chinh { background: #EEF3FC; } .st-band.b-khach_hang { background: #EEF8F1; }
+.st-band.b-quy_trinh { background: #FFF6E8; } .st-band.b-hoc_hoi { background: #F3F0FB; }
+.st-bh { display: flex; gap: 8px; align-items: baseline; margin-bottom: 8px; }
+.st-bh b { font-size: 12.5px; color: var(--ink); } .st-bh span { font-size: 10px; color: var(--muted); }
+.st-cards { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.st-card { position: relative; z-index: 3; width: 230px; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; box-shadow: var(--sh-kpi); cursor: pointer; font: inherit; }
+.st-card:hover { border-color: var(--blue2); }
+.st-card > b { display: block; font-size: 11.5px; color: var(--ink); line-height: 1.35; }
+.st-dep { display: inline-block; margin-top: 4px; font-size: 9.5px; padding: 1px 7px; border-radius: var(--r-pill); background: var(--surface-tint); color: var(--ink-2); }
+.st-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-3); margin-top: 6px; }
+.st-row em { font-style: normal; font-weight: 700; }
+.st-bar { display: block; height: 5px; border-radius: 3px; background: var(--surface-tint); margin-top: 4px; overflow: hidden; }
+.st-bar > i { display: block; height: 100%; background: var(--ink-3); }
+.st-cnt { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 9.5px; }
+.st-none { display: block; margin-top: 6px; font-size: 10px; color: var(--ink-3); font-style: italic; }
+.st-empty { font-size: 10.5px; color: var(--ink-3); font-style: italic; }
+.r-xs { color: #1F7A45 !important; } .st-bar > i.r-xs { background: #1F7A45; }
+.r-tot { color: #353E99 !important; } .st-bar > i.r-tot { background: #353E99; }
+.r-dat { color: #B26B05 !important; } .st-bar > i.r-dat { background: #D97706; }
+.r-chua { color: #B42318 !important; } .st-bar > i.r-chua { background: #B42318; }
+.r-na { color: var(--ink-3) !important; }
+.st-rt { font-size: 10px; font-weight: 700; }
+.st-bad { color: var(--bad) !important; font-weight: 700; }
+.st-sel td { background: #EEF0FA; }
+.st-dist { display: flex; gap: 14px; }
+.st-page .sl-tb td.sm { font-size: 10.5px; color: var(--ink-2); }
+.st-page .bg-unit select { height: 28px; border: 1px solid var(--border-input); border-radius: var(--r-control); background: #fff; padding: 0 8px; font-size: 11.5px; }
+.st-tam { font-size: 9.5px; color: #9A5B06; font-weight: 600; }

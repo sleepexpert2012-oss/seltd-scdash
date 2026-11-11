@@ -22,11 +22,16 @@ import Cashflow from '../screens/Cashflow'
 import Sales from '../screens/Sales'
 import Catalog from '../screens/Catalog'
 import Delivery from '../screens/Delivery'
+import Budget from '../screens/Budget'
+import CostNorm from '../screens/CostNorm'
+import BreakEven from '../screens/BreakEven'
+import Report from '../screens/Report'
+import Strategy from '../screens/Strategy'
 import Infra from '../screens/Infra'
 import CalendarScreen from '../screens/Calendar'
 import './shell.css'
 
-const NO_FILTER_PAGES = ['guide', 'infra', 'cashflow', 'sales', 'catalog', 'delivery']
+const NO_FILTER_PAGES = ['guide', 'infra', 'cashflow', 'sales', 'catalog', 'delivery', 'budget', 'costnorm', 'breakeven', 'report', 'strategy']
 
 function readHash() {
   const id = window.location.hash.replace('#/', '')
@@ -138,6 +143,11 @@ export default function AppShell({ onLogout }) {
               : page === 'sales' ? <Sales />
               : page === 'catalog' ? <Catalog />
               : page === 'delivery' ? <Delivery />
+              : page === 'budget' ? <Budget />
+              : page === 'costnorm' ? <CostNorm />
+              : page === 'breakeven' ? <BreakEven />
+              : page === 'report' ? <Report />
+              : page === 'strategy' ? <Strategy />
               : page === 'guide' ? <Guide />
               : <ScreenPlaceholder page={current} filters={filters} />}
           </ErrorBoundary>

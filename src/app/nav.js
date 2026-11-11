@@ -13,12 +13,23 @@ export const NAV = [
     ],
   },
   {
+    /* Báo cáo điều hành: gom phát hiện từ mọi màn thành một bản để in / gửi */
+    label: 'Báo cáo',
+    items: [
+      { id: 'report', label: 'Báo cáo điều hành', icon: 'book', screen: 20 },
+    ],
+  },
+  {
     /* Tài chính: đọc kết quả bằng tiền. Lãi lỗ nhìn lại kỳ đã qua, Dòng tiền
        nhìn tới các tuần sắp đến — hai câu hỏi khác nhau nên để cạnh nhau. */
     label: 'Tài chính',
     items: [
       { id: 'pnl', label: 'Lãi lỗ', icon: 'scale', screen: 11 },
+      { id: 'costnorm', label: 'Định mức chi phí', icon: 'layers', screen: 18 },
+      { id: 'breakeven', label: 'Điểm hòa vốn', icon: 'scale', screen: 19 },
       { id: 'cashflow', label: 'Dòng tiền', icon: 'trend', screen: 13 },
+      /* Lớp nhập ngân sách + chi phí ngoài sàn: nền cho mọi so sánh kế hoạch – thực tế */
+      { id: 'budget', label: 'Kế hoạch & Ngân sách', icon: 'book', screen: 17 },
     ],
   },
   {
@@ -38,6 +49,13 @@ export const NAV = [
       { id: 'supplier', label: 'Nhà cung cấp & Mua hàng', icon: 'factory', screen: 5 },
       { id: 'stock', label: 'Tồn kho & Đặt hàng', icon: 'box', screen: 6 },
       { id: 'forecast', label: 'Forecast & Kế hoạch', icon: 'trend', screen: 7 },
+    ],
+  },
+  {
+    /* Chiến lược & KPI — cấp phòng ban (không lưu cá nhân: trang đọc công khai) */
+    label: 'Chiến lược',
+    items: [
+      { id: 'strategy', label: 'Chiến lược & KPI', icon: 'chart', screen: 21 },
     ],
   },
   {

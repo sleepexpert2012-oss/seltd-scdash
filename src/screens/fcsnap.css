@@ -1,0 +1,31 @@
+/* Hai tab Bản dự báo / Đối chiếu dự báo (ForecastSnap.jsx) */
+.fs-wrap > section, .fs-wrap > .mk-verdict, .fs-wrap > .mk-kpis, .fs-wrap > .pl-row2, .fs-wrap > .pl-warn, .fs-wrap > .cf-msg { margin-bottom: 14px; }
+.fs-row2 { display: grid; }
+.fs-list tbody tr { cursor: pointer; }
+.fs-list tbody tr:hover td { background: var(--surface-tint); }
+.fs-list tr.sel td { background: #EEF0FA; }
+.fs-list td.sm { font-size: 10.5px; color: var(--ink-3); }
+.fs-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.fs-acts .btn-primary, .fs-wrap .bg-form-act button { height: 28px; padding: 0 12px; font-size: 11px; font-weight: 650; border-radius: var(--r-control); border: 1px solid transparent; cursor: pointer; }
+.fs-wrap .btn-primary { background: var(--blue); color: #fff; }
+.fs-wrap .btn-primary:disabled { opacity: .5; cursor: default; }
+.fs-wrap .btn-ghost { background: #fff; border-color: var(--line); color: var(--ink-2); }
+.fs-form { margin-top: 12px; }
+.fs-wrap .sl-tag { display: inline-block; padding: 1px 7px; border-radius: var(--r-pill); font-size: 9.5px; font-weight: 650; }
+.fs-wrap .sl-tag.on { background: rgba(31, 122, 69, .1); color: var(--good); }
+.fs-wrap .sl-tag.mid { background: rgba(217, 119, 6, .12); color: #9A5B06; }
+.fs-h4 { margin: 10px 0 6px; font-size: 11px; color: var(--ink); }
+.fs-top { margin: 0; padding-left: 18px; font-size: 11px; color: var(--ink-2); }
+.fs-top li { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+.fs-top li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-top li b { color: var(--ink); white-space: nowrap; }
+.fs-q { height: 24px; border: 1px solid var(--border-input); border-radius: 4px; padding: 0 8px; font-size: 11px; width: 180px; }
+.fs-grid { max-height: 520px; overflow: auto; }
+.fs-grid th { position: sticky; top: 0; z-index: 1; }
+.fs-grid td.lbl small, .fs-nm { display: block; font-size: 9.5px; color: var(--ink-3); }
+.fs-grid td.num.b { font-weight: 650; }
+.fs-in { width: 70px; height: 24px; text-align: right; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.fs-in.dirty, .fs-chg { background: #FFF4D6; border-color: #F0C66A; }
+.fs-chg { padding: 1px 4px; border-radius: 3px; border: 1px solid #F0C66A; }
+.fs-moi { margin: 0; padding-left: 18px; font-size: 11px; color: var(--ink-2); columns: 2; }
+.fs-wrap .pp-empty code { font-size: 10.5px; background: var(--surface-tint); padding: 1px 5px; border-radius: 4px; }

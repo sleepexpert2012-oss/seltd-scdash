@@ -8,6 +8,7 @@ import { MONTHS, pickRows, monthlySeries, comparePeriod, SKU_MAP } from '../lib/
 import { trieu, num, pct } from '../lib/format'
 import { exportRowsXlsx } from '../lib/masterFile'
 import { useDrill } from '../app/drill'
+import PnlPlan from './PnlPlan'
 import './pnl.css'
 
 const C = {
@@ -156,7 +157,7 @@ const YOY_READY = (() => {
   return { from, to: last }
 })()
 
-const TAB_IC = { flow: '⌁', month: '▦', fee: '⛁', why: '⚖', unit: '◫', method: 'ƒ' }
+const TAB_IC = { flow: '⌁', month: '▦', plan: '◎', fee: '⛁', why: '⚖', unit: '◫', method: 'ƒ' }
 
 export default function Pnl({ filters, setFilters }) {
   const [tab, setTab] = useState('flow')
@@ -408,17 +409,18 @@ export default function Pnl({ filters, setFilters }) {
             Master Data. Kỳ đang xem: <b>{filters.from} → {filters.to}</b> ({d.nMonths} tháng).
           </p>
         </div>
-        <div className={`pl-health ${T.ln >= 0 ? 't-good' : 't-bad'}`}>
+        {tab !== 'plan' && <div className={`pl-health ${T.ln >= 0 ? 't-good' : 't-bad'}`}>
           <span>Lãi lỗ kỳ này</span>
           <b>{T.ln >= 0 ? '' : '−'}{trieu(Math.abs(T.ln), 0)} tr</b>
           <i>{pct(T.lnRate, 1)} doanh thu</i>
-        </div>
+        </div>}
       </div>
 
       <div className="mk-tabbar">
         <div className="mk-tabs">
           {[['flow', 'Tiền rơi ở đâu', null],
             ['month', 'Theo tháng', d.months.length],
+            ['plan', 'Kế hoạch vs Thực đạt', null],
             ['fee', 'Phí sàn', FEES.length],
             ['why', 'Vì sao lãi đổi', null],
             ['unit', 'Ngành & SKU', d.byNg.length],
@@ -432,7 +434,7 @@ export default function Pnl({ filters, setFilters }) {
         </div>
       </div>
 
-      {d.dimOn && (
+      {tab !== 'plan' && d.dimOn && (
         <div className="pl-warn">
           <b>Bộ lọc chiều đang bật — phí sàn và quảng cáo là số PHÂN BỔ</b>
           <p>
@@ -444,7 +446,7 @@ export default function Pnl({ filters, setFilters }) {
         </div>
       )}
 
-      {d.noAds.length > 0 && (
+      {tab !== 'plan' && d.noAds.length > 0 && (
         <div className="pl-warn soft">
           <b>{d.noAds.length}/{d.months.length} tháng trong kỳ chưa có dữ liệu quảng cáo</b>
           <p>
@@ -456,23 +458,30 @@ export default function Pnl({ filters, setFilters }) {
         </div>
       )}
 
-      <div className={`mk-verdict ${verdict.tone}`}>
-        <b>Vì sao</b>
-        <p>{verdict.t}</p>
-      </div>
-
-      <div className="mk-kpis pl-kpis">
-        {KPI.map(x => (
-          <div key={x.k} className={`mk-kpi ${x.tone}`}>
-            <span className="k">{x.k}</span>
-            <strong>{x.v}<em>{x.u}</em></strong>
-            <span className="sub">{x.sub}</span>
+      {/* Tab Kế hoạch vs Thực đạt có kỳ, phạm vi và thẻ riêng — ẩn khối chung
+          (theo bộ lọc, chỉ Shopee) để không có hai bộ số đặt cạnh nhau */}
+      {tab !== 'plan' && (
+        <>
+          <div className={`mk-verdict ${verdict.tone}`}>
+            <b>Vì sao</b>
+            <p>{verdict.t}</p>
           </div>
-        ))}
-      </div>
+
+          <div className="mk-kpis pl-kpis">
+            {KPI.map(x => (
+              <div key={x.k} className={`mk-kpi ${x.tone}`}>
+                <span className="k">{x.k}</span>
+                <strong>{x.v}<em>{x.u}</em></strong>
+                <span className="sub">{x.sub}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {tab === 'flow' && <FlowTab d={d} />}
       {tab === 'month' && <MonthTab d={d} />}
+      {tab === 'plan' && <PnlPlan />}
       {tab === 'fee' && <FeeTab d={d} />}
       {tab === 'why' && <WhyTab d={d} filters={filters} setFilters={setFilters} />}
       {tab === 'unit' && <UnitTab d={d} drill={drill} />}

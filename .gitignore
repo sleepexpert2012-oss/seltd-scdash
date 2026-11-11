@@ -31,3 +31,7 @@ secrets/
 data-goc/knth/
 data-goc/*DoiChieu-Cong-No*
 test/
+
+# Khung hình cắt từ video quảng cáo của bên thứ ba (HCW Plan) — chỉ để tham khảo ý tưởng,
+# không phải tài sản của mình nên KHÔNG đẩy lên repo công khai.
+reference/hcw-plan/

@@ -11,7 +11,9 @@ import { trieu, num } from '../lib/format'
 import {
   fetchCashflow, pushCashflow, fetchCashflowLog, cashflowCache, cashflowMeta,
   deviceName, setDeviceName, fetchSales,
+  fetchCfSetting, setCfSetting, fetchWcSnapshots, saveWcSnapshot,
 } from '../lib/cloud'
+import { workingCapital, arHistory } from '../lib/fin'
 import { exportRowsXlsx } from '../lib/masterFile'
 import { doiChieu, xuatDoiChieu } from '../lib/doiChieu'
 import { tenNgan } from '../lib/formbits'
@@ -94,6 +96,118 @@ function MoneyInput({ value, onChange, placeholder = '—', title }) {
   )
 }
 
+/* ---------- tính toán theo tuần ----------
+   Hàm thuần dùng chung cho tab "Kế hoạch theo tuần" và tab "Theo tháng":
+   cùng cách nối số dư (cuối kỳ tuần trước = đầu kỳ tuần sau) và cùng cách
+   đưa tiền thu nợ khách vào tuần đến hạn. */
+function tinhTuan(data, from, nWeeks, NCC, ar, resetOnOpen = false) {
+  const weeks = []
+  let y = from.y, w = from.w
+  for (let i = 0; i < nWeeks; i++) {
+    const id = wkId(y, w)
+    const mon = mondayOf(y, w)
+    const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6)
+    weeks.push({ id, y, w, mon, sun, raw: data[id] || {} })
+    const nx = addW(y, w, 1); y = nx.y; w = nx.w
+  }
+  let carry = null
+  for (const k of weeks) {
+    /* Thu nợ khách hàng KHÔNG nhập tay: tự lấy các khoản đến hạn trong tuần.
+       Tách riêng `thuNo` để bảng chỉ rõ phần nào do app tính. */
+    const t0 = k.mon.toISOString().slice(0, 10)
+    const t1 = k.sun.toISOString().slice(0, 10)
+    const trongTuan = ar.theoHan.filter(x => x.han >= t0 && x.han <= t1)
+    const thuNo = trongTuan.reduce((a, x) => a + x.conLai, 0)
+    k.thuNoChiTiet = trongTuan
+    const thu = THU.reduce((a, [id]) => a + (k.raw.thu?.[id] || 0), 0) + thuNo
+    k.thuNo = thuNo
+    const chiNcc = NCC.reduce((a, [code]) => a + (k.raw.chi?.[code] || 0), 0)
+    const chiKhac = CHI_KHAC.reduce((a, [id]) => a + (k.raw.chi?.[id] || 0), 0)
+    const chi = chiNcc + chiKhac
+    /* Đầu kỳ: tuần đầu do người dùng nhập, các tuần sau nối từ cuối kỳ tuần
+       trước — đây là chỗ Excel hay sai vì phải kéo tay công thức. */
+    /* resetOnOpen (tab Theo tháng): tuần nào người dùng nhập tiền mặt đầu kỳ thì
+       đó là số dư THỰC TẾ đã kiểm — lấy làm mốc thay vì số nối từ kế hoạch cũ */
+    const open = carry == null || (resetOnOpen && k.raw.open) ? (k.raw.open || 0) : carry
+    const truocChi = open + thu
+    const close = truocChi - chi
+    Object.assign(k, { thu, thuNo, chi, chiNcc, chiKhac, open, truocChi, close, tuNhap: carry == null })
+    carry = close
+  }
+  /* Khoản đến hạn TRƯỚC tuần đầu tiên đang hiển thị sẽ không xuất hiện ở bảng
+     — phải nêu riêng, nếu không người đọc tưởng đã tính hết. */
+  const dauKy = weeks[0] ? weeks[0].mon.toISOString().slice(0, 10) : null
+  const noNgoaiKy = dauKy
+    ? ar.theoHan.filter(x => x.han < dauKy).reduce((a, x) => a + x.conLai, 0)
+    : 0
+  const am = weeks.find(k => k.close < 0)
+  return {
+    weeks, noNgoaiKy,
+    tong: {
+      thu: weeks.reduce((a, k) => a + k.thu, 0),
+      chi: weeks.reduce((a, k) => a + k.chi, 0),
+      open: weeks[0]?.open || 0,
+      close: weeks[weeks.length - 1]?.close || 0,
+    },
+    am,
+    chart: weeks.map(k => ({
+      label: `T${k.w}`, thu: k.thu / 1e6, chi: -k.chi / 1e6, close: k.close / 1e6,
+    })),
+  }
+}
+
+/* Công nợ phải thu theo hạn — hàm thuần, dùng chung cho màn Dòng tiền và
+   bộ nhận xét tự động (src/lib/insights.js). */
+export function tinhAR() {
+  const term = Object.fromEntries((arFile.customers || []).map(c => [c.code, c.term_days || 30]))
+  const tenKH = Object.fromEntries((arFile.customers || []).map(c => [c.code, c.name]))
+  const addDays = (iso, n) => {
+    const t = new Date(iso + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n)
+    return t.toISOString().slice(0, 10)
+  }
+  const khoan = (arFile.deliveries || []).map(x => ({
+    ...x, han: addDays(x.d, term[x.cust] ?? 30), conLai: x.amount, loai: 'giao',
+  })).sort((a, b) => a.han.localeCompare(b.han))
+
+  /* Kế hoạch giao tiếp theo -> phải thu DỰ KIẾN, hạn = cuối tuần giao + term */
+  const duKien = (arFile.plans || []).map(x => ({
+    pxk: `KH ${x.d_from.slice(8)}/${x.d_from.slice(5, 7)}`, cust: x.cust, d: x.d_to,
+    amount: x.amount, han: addDays(x.d_to, term[x.cust] ?? 30), conLai: x.amount, loai: 'kehoach',
+  })).sort((a, b) => a.han.localeCompare(b.han))
+
+  let daThu = (arFile.payments || []).reduce((a, p) => a + (p.amount || 0), 0)
+  const thuTong = daThu
+  for (const k of khoan) {
+    if (daThu <= 0) break
+    const tru = Math.min(daThu, k.conLai)
+    k.conLai -= tru; daThu -= tru
+  }
+  const conPhaiThu = khoan.reduce((a, k) => a + k.conLai, 0)
+  const homNay = new Date().toISOString().slice(0, 10)
+  const quaHan = khoan.filter(k => k.conLai > 0 && k.han < homNay)
+  return {
+    tenKH, khoan, duKien, thuTong, conPhaiThu,
+    daGiao: khoan.reduce((a, k) => a + k.amount, 0),
+    keHoach: duKien.reduce((a, k) => a + k.amount, 0),
+    quaHan, quaHanTien: quaHan.reduce((a, k) => a + k.conLai, 0),
+    asOf: arFile.meta?.as_of || null,
+    /* Khoản còn lại theo tuần đến hạn — đây là thứ nối vào bảng dòng tiền */
+    theoHan: [...khoan, ...duKien].filter(k => k.conLai > 0),
+  }
+}
+
+/* Chạy kế hoạch tuần từ tuần đầu tiên có số (lấy các tuần có nhập tiền mặt đầu kỳ
+   làm mốc thật — như tab Theo tháng) và trả về danh sách tuần. */
+export function chayKeHoachTuan(data, soTuan = 60) {
+  const keys = Object.keys(data || {}).filter(k => {
+    const r = data[k] || {}
+    return r.open || Object.values(r.thu || {}).some(Boolean) || Object.values(r.chi || {}).some(Boolean)
+  }).sort()
+  if (!keys.length) return []
+  const NCC = master.suppliers.map(x => [x.code, x.name])
+  return tinhTuan(data, { y: +keys[0].slice(0, 4), w: +keys[0].slice(6) }, soTuan, NCC, tinhAR(), true).weeks
+}
+
 export default function Cashflow() {
   const now = new Date()
   const cur = iso(now)
@@ -124,98 +238,10 @@ export default function Cashflow() {
      Hạn thu = ngày giao + số ngày công nợ. Tiền đến hạn tuần nào rơi vào tuần
      đó. Tiền đã thu trừ dần theo thứ tự hạn CŨ TRƯỚC (đòi nợ bao giờ cũng thu
      khoản cũ nhất trước), nên khoản nào còn lại mới là khoản thực sự phải đòi. */
-  const ar = useMemo(() => {
-    const term = Object.fromEntries((arFile.customers || []).map(c => [c.code, c.term_days || 30]))
-    const tenKH = Object.fromEntries((arFile.customers || []).map(c => [c.code, c.name]))
-    const addDays = (iso, n) => {
-      const t = new Date(iso + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n)
-      return t.toISOString().slice(0, 10)
-    }
-    const khoan = (arFile.deliveries || []).map(x => ({
-      ...x, han: addDays(x.d, term[x.cust] ?? 30), conLai: x.amount, loai: 'giao',
-    })).sort((a, b) => a.han.localeCompare(b.han))
-
-    /* Kế hoạch giao tiếp theo -> phải thu DỰ KIẾN, hạn = cuối tuần giao + term */
-    const duKien = (arFile.plans || []).map(x => ({
-      pxk: `KH ${x.d_from.slice(8)}/${x.d_from.slice(5, 7)}`, cust: x.cust, d: x.d_to,
-      amount: x.amount, han: addDays(x.d_to, term[x.cust] ?? 30), conLai: x.amount, loai: 'kehoach',
-    })).sort((a, b) => a.han.localeCompare(b.han))
-
-    let daThu = (arFile.payments || []).reduce((a, p) => a + (p.amount || 0), 0)
-    const thuTong = daThu
-    for (const k of khoan) {
-      if (daThu <= 0) break
-      const tru = Math.min(daThu, k.conLai)
-      k.conLai -= tru; daThu -= tru
-    }
-    const conPhaiThu = khoan.reduce((a, k) => a + k.conLai, 0)
-    const homNay = new Date().toISOString().slice(0, 10)
-    const quaHan = khoan.filter(k => k.conLai > 0 && k.han < homNay)
-    return {
-      tenKH, khoan, duKien, thuTong, conPhaiThu,
-      daGiao: khoan.reduce((a, k) => a + k.amount, 0),
-      keHoach: duKien.reduce((a, k) => a + k.amount, 0),
-      quaHan, quaHanTien: quaHan.reduce((a, k) => a + k.conLai, 0),
-      asOf: arFile.meta?.as_of || null,
-      /* Khoản còn lại theo tuần đến hạn — đây là thứ nối vào bảng dòng tiền */
-      theoHan: [...khoan, ...duKien].filter(k => k.conLai > 0),
-    }
-  }, [])
+  const ar = useMemo(() => tinhAR(), [])
 
   /* ---------- tính toán ---------- */
-  const d = useMemo(() => {
-    const weeks = []
-    let y = from.y, w = from.w
-    for (let i = 0; i < nWeeks; i++) {
-      const id = wkId(y, w)
-      const mon = mondayOf(y, w)
-      const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6)
-      weeks.push({ id, y, w, mon, sun, raw: data[id] || {} })
-      const nx = addW(y, w, 1); y = nx.y; w = nx.w
-    }
-    let carry = null
-    for (const k of weeks) {
-      /* Thu nợ khách hàng KHÔNG nhập tay: tự lấy các khoản đến hạn trong tuần.
-         Tách riêng `thuNo` để bảng chỉ rõ phần nào do app tính. */
-      const t0 = k.mon.toISOString().slice(0, 10)
-      const t1 = k.sun.toISOString().slice(0, 10)
-      const trongTuan = ar.theoHan.filter(x => x.han >= t0 && x.han <= t1)
-      const thuNo = trongTuan.reduce((a, x) => a + x.conLai, 0)
-      k.thuNoChiTiet = trongTuan
-      const thu = THU.reduce((a, [id]) => a + (k.raw.thu?.[id] || 0), 0) + thuNo
-      k.thuNo = thuNo
-      const chiNcc = NCC.reduce((a, [code]) => a + (k.raw.chi?.[code] || 0), 0)
-      const chiKhac = CHI_KHAC.reduce((a, [id]) => a + (k.raw.chi?.[id] || 0), 0)
-      const chi = chiNcc + chiKhac
-      /* Đầu kỳ: tuần đầu do người dùng nhập, các tuần sau nối từ cuối kỳ tuần
-         trước — đây là chỗ Excel hay sai vì phải kéo tay công thức. */
-      const open = carry == null ? (k.raw.open || 0) : carry
-      const truocChi = open + thu
-      const close = truocChi - chi
-      Object.assign(k, { thu, thuNo, chi, chiNcc, chiKhac, open, truocChi, close, tuNhap: carry == null })
-      carry = close
-    }
-    /* Khoản đến hạn TRƯỚC tuần đầu tiên đang hiển thị sẽ không xuất hiện ở bảng
-       — phải nêu riêng, nếu không người đọc tưởng đã tính hết. */
-    const dauKy = weeks[0] ? weeks[0].mon.toISOString().slice(0, 10) : null
-    const noNgoaiKy = dauKy
-      ? ar.theoHan.filter(x => x.han < dauKy).reduce((a, x) => a + x.conLai, 0)
-      : 0
-    const am = weeks.find(k => k.close < 0)
-    return {
-      weeks, noNgoaiKy,
-      tong: {
-        thu: weeks.reduce((a, k) => a + k.thu, 0),
-        chi: weeks.reduce((a, k) => a + k.chi, 0),
-        open: weeks[0]?.open || 0,
-        close: weeks[weeks.length - 1]?.close || 0,
-      },
-      am,
-      chart: weeks.map(k => ({
-        label: `T${k.w}`, thu: k.thu / 1e6, chi: -k.chi / 1e6, close: k.close / 1e6,
-      })),
-    }
-  }, [data, from, nWeeks, NCC, ar])
+  const d = useMemo(() => tinhTuan(data, from, nWeeks, NCC, ar), [data, from, nWeeks, NCC, ar])
 
   /* Công nợ: lấy số KHAI TAY từ phần mềm kế toán (src/data/supplier_debt.json).
      Số app tự cộng từ PO trong Master Data ra 1.379,6tr trong khi số thật là
@@ -452,7 +478,8 @@ export default function Cashflow() {
       <div className="mk-tabbar">
         <div className="mk-tabs">
           {[['plan', '▦', 'Kế hoạch theo tuần'], ['report', '◈', 'Báo cáo lãnh đạo'],
-            ['khach', '◉', 'Theo khách hàng']].map(([id, ic, lb]) => (
+            ['khach', '◉', 'Theo khách hàng'], ['thang', '▥', 'Theo tháng'],
+            ['vld', '⟳', 'Vốn lưu động']].map(([id, ic, lb]) => (
             <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
               <span className="ic" aria-hidden>{ic}</span>{lb}
             </button>
@@ -490,6 +517,8 @@ export default function Cashflow() {
       {tab === 'report' && <BaoCao d={d} bc={bc} ar={ar} ref0={ref} banTin={banTin} setMsg={setMsg} />}
 
       {tab === 'khach' && <TheoKhach setMsg={setMsg} />}
+      {tab === 'thang' && <TheoThang data={data} NCC={NCC} ar={ar} setMsg={setMsg} />}
+      {tab === 'vld' && <VonLuuDong setMsg={setMsg} />}
 
       {tab === 'plan' && <>
       <div className="mk-kpis cf-kpis">
@@ -1112,3 +1141,345 @@ function TheoKhach({ setMsg }) {
 }
 
 const vn = n => (n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '0')
+
+/* =====================================================================
+   TAB "THEO THÁNG" — gộp kế hoạch tuần thành tháng.
+   Không thêm ô nhập nào ngoài QUỸ TỐI THIỂU. Tuần ISO thuộc tháng chứa
+   ngày thứ Năm của tuần. Luôn tính từ tuần ĐẦU TIÊN có số để số dư nối đúng
+   như tab tuần, rồi mới cắt ra 12 tháng đang xem.
+   ===================================================================== */
+const QUY_KEY = 'seltd_quy_toi_thieu'
+const thuOf = mon => { const t = new Date(mon); t.setUTCDate(t.getUTCDate() + 3); return t.toISOString().slice(0, 7) }
+const ymAdd = (ym, n) => {
+  const [y, m] = ym.split('-').map(Number)
+  const t = new Date(Date.UTC(y, m - 1 + n, 1))
+  return t.toISOString().slice(0, 7)
+}
+const ymTxt = ym => `T${+ym.slice(5)}/${ym.slice(2, 4)}`
+
+function TheoThang({ data, NCC, ar, setMsg }) {
+  const keys = useMemo(() => Object.keys(data).filter(k => {
+    const r = data[k] || {}
+    return r.open || Object.values(r.thu || {}).some(Boolean) || Object.values(r.chi || {}).some(Boolean)
+  }).sort(), [data])
+  const firstYm = keys.length ? thuOf(mondayOf(+keys[0].slice(0, 4), +keys[0].slice(6))) : null
+  const [start, setStart] = useState(null)
+  const startYm = start || firstYm
+  const [quy, setQuy] = useState(() => { try { return Number(localStorage.getItem(QUY_KEY)) || 0 } catch { return 0 } })
+  const [quyDb, setQuyDb] = useState(null)        // null = chưa biết; false = chưa có bảng
+  const [quyTxt, setQuyTxt] = useState('')
+
+  useEffect(() => {
+    fetchCfSetting('quy_toi_thieu').then(r => {
+      setQuyDb(r.ok)
+      if (r.ok && r.row) setQuy(Number(r.row.value) || 0)
+    }).catch(() => setQuyDb(false))
+  }, [])
+
+  async function luuQuy() {
+    const v = parseVnd(quyTxt)
+    if (!(v >= 0)) return
+    setQuy(v); setQuyTxt('')
+    try { localStorage.setItem(QUY_KEY, String(v)) } catch { /* bỏ qua */ }
+    if (quyDb) {
+      try { await setCfSetting('quy_toi_thieu', v); setMsg({ t: 'ok', s: `Đã lưu quỹ tối thiểu ${fmtVnd(v)} đ cho cả công ty.` }) }
+      catch (e) { setMsg({ t: 'bad', s: `CHƯA lưu lên đám mây: ${e.message}. Đang giữ trên máy này.` }) }
+    } else {
+      setMsg({ t: 'warn', s: 'Đã giữ quỹ tối thiểu trên MÁY NÀY. Bảng dùng chung chưa tạo (scripts/shopee/schema_wc.sql) nên máy khác chưa thấy.' })
+    }
+  }
+
+  const m = useMemo(() => {
+    if (!keys.length) return null
+    const y0 = +keys[0].slice(0, 4), w0 = +keys[0].slice(6)
+    const endYm = ymAdd(startYm, 11)
+    /* đủ số tuần để phủ hết tháng cuối của khung đang xem */
+    let n = 0, y = y0, w = w0
+    while (n < 400) {
+      const mon = mondayOf(y, w)
+      if (thuOf(mon) > endYm) break
+      const nx = addW(y, w, 1); y = nx.y; w = nx.w; n++
+    }
+    const weeks = tinhTuan(data, { y: y0, w: w0 }, n, NCC, ar, true).weeks
+    const moc = weeks.filter(k => k.raw.open)
+    const lastKey = keys[keys.length - 1]
+    const months = []
+    for (let i = 0; i < 12; i++) {
+      const ym = ymAdd(startYm, i)
+      const ws = weeks.filter(k => thuOf(k.mon) === ym)
+      if (!ws.length) { months.push({ ym, ws, thu: 0, chi: 0, net: 0, open: null, close: null, plan: false }); continue }
+      const thu = ws.reduce((a, k) => a + k.thu, 0), chi = ws.reduce((a, k) => a + k.chi, 0)
+      months.push({
+        ym, ws, thu, chi, net: thu - chi, open: ws[0].open, close: ws[ws.length - 1].close,
+        plan: ws.some(k => k.id <= lastKey),
+        /* tuần giữa tháng có mốc tiền mặt thực tế → cuối kỳ ≠ đầu kỳ + thuần; phần chênh là điều chỉnh về số thật */
+        adj: ws[ws.length - 1].close - ws[0].open - (thu - chi),
+      })
+    }
+    const inWin = weeks.filter(k => thuOf(k.mon) >= startYm && thuOf(k.mon) <= endYm)
+    return { weeks, months, inWin, endYm, lastKey, moc }
+  }, [keys, startYm, data, NCC, ar])
+
+  if (!m) {
+    return <section className="m2-panel"><p className="pl-empty">Chưa có kế hoạch tuần nào — nhập ở tab "Kế hoạch theo tuần" trước.</p></section>
+  }
+
+  const curYm = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 7)
+  const T = {
+    thu: m.months.reduce((a, x) => a + x.thu, 0), chi: m.months.reduce((a, x) => a + x.chi, 0),
+    close: [...m.months].reverse().find(x => x.close != null)?.close ?? null,
+  }
+  const duoi = quy > 0 ? m.inWin.find(k => k.close < quy) : null
+  /* Tốc độ đốt tiền: bình quân dòng tiền thuần của 3 tháng gần nhất (đến tháng hiện tại) có thuần âm */
+  const am = m.months.filter(x => x.ym <= curYm && x.ws.length && x.net < 0).slice(-3)
+  const burn = am.length ? -am.reduce((a, x) => a + x.net, 0) / am.length : null
+  const today = new Date().toISOString().slice(0, 10)
+  const nowWeek = [...m.weeks].reverse().find(k => k.mon.toISOString().slice(0, 10) <= today)
+  const soDu = nowWeek ? nowWeek.close : m.weeks[0]?.open ?? 0
+  const runway = burn ? soDu / burn : null
+  const opts = []
+  for (let i = -12; i <= 12; i++) opts.push(ymAdd(firstYm, i))
+  const chart = m.months.map(x => ({
+    lb: ymTxt(x.ym), thu: x.thu / 1e6, chi: x.chi / 1e6, net: x.ws.length ? x.net / 1e6 : null,
+    close: x.close == null ? null : x.close / 1e6,
+  }))
+
+  return (
+    <>
+      <section className="m2-panel">
+        <div className="cf-mbar">
+          <label className="cf-inline">Từ tháng
+            <select value={startYm} onChange={e => setStart(e.target.value)}>
+              {opts.map(o => <option key={o} value={o}>{ymTxt(o)}</option>)}
+            </select>
+          </label>
+          <span className="cf-mnote">
+            12 tháng · kế hoạch tuần có số từ tuần {keys[0].slice(6)}/{keys[0].slice(0, 4)} đến tuần {m.lastKey.slice(6)}/{m.lastKey.slice(0, 4)}
+            {m.moc.length ? ` · mốc tiền mặt thực tế: ${m.moc.map(k => `tuần ${k.w} (${fmtVnd(k.raw.open)} đ)`).join(', ')}` : ''}
+          </span>
+          <span style={{ flex: 1 }} />
+          <label className="cf-inline">Quỹ tối thiểu
+            <input value={quyTxt} placeholder={fmtVnd(quy) || 'chưa đặt'} inputMode="numeric"
+              onChange={e => setQuyTxt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') luuQuy() }} />
+          </label>
+          <button className="btn-ghost" disabled={!quyTxt} onClick={luuQuy}>Lưu</button>
+          {quyDb === false && <span className="cf-mnote warn">chỉ lưu trên máy này</span>}
+        </div>
+      </section>
+
+      {duoi ? (
+        <div className="cf-msg t-bad">
+          Tuần {duoi.w} ({fmtD(duoi.mon)}, {ymTxt(thuOf(duoi.mon))}) số dư xuống <b>{fmtVnd(duoi.close)} đ</b> — dưới quỹ tối thiểu{' '}
+          {fmtVnd(quy)} đ, thiếu <b>{fmtVnd(quy - duoi.close)} đ</b>. Đây là tuần ĐẦU TIÊN chạm ngưỡng trong 12 tháng đang xem.
+        </div>
+      ) : quy > 0 ? (
+        <div className="cf-msg t-ok">Cả 12 tháng không tuần nào số dư xuống dưới quỹ tối thiểu {fmtVnd(quy)} đ.</div>
+      ) : (
+        <div className="cf-msg t-warn">Chưa đặt quỹ tối thiểu — đặt ở ô bên trên để app cảnh báo tuần nào quỹ chạm đáy.</div>
+      )}
+
+      <div className="mk-kpis cf-kpis cf-kpis4">
+        <div className="mk-kpi"><span className="k">Tổng thu</span><strong>{trieu(T.thu, 1)}<em>tr</em></strong><span className="sub">12 tháng · gồm thu nợ khách đến hạn</span></div>
+        <div className="mk-kpi"><span className="k">Tổng chi</span><strong>{trieu(T.chi, 1)}<em>tr</em></strong><span className="sub">12 tháng</span></div>
+        <div className={`mk-kpi ${T.thu - T.chi >= 0 ? 'good' : 'bad'}`}><span className="k">Dòng tiền thuần</span><strong>{trieu(T.thu - T.chi, 1)}<em>tr</em></strong><span className="sub">thu − chi</span></div>
+        <div className={`mk-kpi ${T.close == null ? '' : T.close < quy ? 'bad' : ''}`}><span className="k">Số dư cuối kỳ</span><strong>{T.close == null ? '—' : trieu(T.close, 1)}<em>tr</em></strong><span className="sub">cuối {ymTxt(m.endYm)}</span></div>
+      </div>
+
+      <div className={`mk-verdict ${burn == null ? 'green' : runway < 3 ? 'red' : 'grey'}`}>
+        <b>Tốc độ đốt tiền</b>
+        <p>
+          {burn == null
+            ? 'Không đốt tiền: chưa có tháng nào (đến tháng hiện tại) dòng tiền thuần âm.'
+            : <>Bình quân {am.length} tháng gần nhất có dòng tiền thuần âm ({am.map(x => ymTxt(x.ym)).join(', ')}): đốt{' '}
+              <strong>{trieu(burn, 1)} tr/tháng</strong>.{' '}
+              {soDu <= 0
+                ? <>Số dư theo kế hoạch tuần này <strong>đã âm {trieu(-soDu, 1)} tr</strong> — cần nguồn bù (thu nợ sớm, giãn chi, bù vốn) ngay, không còn đường băng.</>
+                : <>Số dư hiện tại {trieu(soDu, 1)} tr → còn khoảng <strong>{num(runway, 1)} tháng</strong> nếu giữ nhịp này.</>}</>}
+        </p>
+      </div>
+
+      <div className="pl-row2 cf-row2">
+        <section className="m2-panel">
+          <div className="m2-head"><h3>Thu, chi và dòng tiền thuần theo tháng</h3><span>triệu đồng</span></div>
+          <ResponsiveContainer width="100%" height={250}>
+            <ComposedChart data={chart} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={C.grid} vertical={false} />
+              <XAxis dataKey="lb" tick={{ fontSize: 10, fill: C.axis }} />
+              <YAxis tick={{ fontSize: 10, fill: C.axis }} width={44} />
+              <Tooltip formatter={(v, n) => [v == null ? '—' : `${num(v, 1)} tr`, n]} />
+              <Legend verticalAlign="top" align="left" height={26} iconSize={10} wrapperStyle={{ fontSize: 10.5 }} />
+              <ReferenceLine y={0} stroke={C.axis} />
+              <Bar dataKey="thu" name="Thu" fill={C.good} radius={[2, 2, 0, 0]} />
+              <Bar dataKey="chi" name="Chi" fill={C.bad} radius={[2, 2, 0, 0]} />
+              <Line dataKey="net" name="Dòng tiền thuần" stroke={C.navy} strokeWidth={2} dot={{ r: 2.5 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </section>
+        <section className="m2-panel">
+          <div className="m2-head"><h3>Số dư cuối tháng</h3><span>triệu đồng · đường đỏ = quỹ tối thiểu</span></div>
+          <ResponsiveContainer width="100%" height={250}>
+            <ComposedChart data={chart} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={C.grid} vertical={false} />
+              <XAxis dataKey="lb" tick={{ fontSize: 10, fill: C.axis }} />
+              <YAxis tick={{ fontSize: 10, fill: C.axis }} width={44} />
+              <Tooltip formatter={(v, n) => [v == null ? '—' : `${num(v, 1)} tr`, n]} />
+              <ReferenceLine y={0} stroke={C.axis} />
+              {quy > 0 && <ReferenceLine y={quy / 1e6} stroke={C.bad} strokeDasharray="5 3" label={{ value: 'quỹ tối thiểu', fontSize: 10, fill: C.bad, position: 'insideTopLeft' }} />}
+              <Line dataKey="close" name="Số dư cuối tháng" stroke={C.blue} strokeWidth={2.2} dot={{ r: 2.5 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </section>
+      </div>
+
+      <section className="m2-panel">
+        <div className="m2-head"><h3>Bảng theo tháng</h3><span>đồng · tháng chưa có kế hoạch tuần nào vẫn nối số dư (thu/chi = 0)</span></div>
+        <table className="cf-ref">
+          <thead><tr><th>Tháng</th><th className="num">Số tuần</th><th className="num">Đầu kỳ</th><th className="num">Thu</th>
+            <th className="num">trong đó thu nợ khách</th><th className="num">Chi</th><th className="num">Thuần</th><th className="num">Cuối kỳ</th></tr></thead>
+          <tbody>
+            {m.months.map(x => (
+              <tr key={x.ym} className={x.plan ? '' : 'dim'}>
+                <td><b>{ymTxt(x.ym)}</b>{!x.plan && x.ws.length ? <i className="note"> chưa có kế hoạch</i> : null}</td>
+                <td className="num">{x.ws.length}</td>
+                <td className="num">{x.open == null ? '—' : fmtVnd(x.open)}</td>
+                <td className="num">{fmtVnd(x.thu) || '0'}</td>
+                <td className="num">{fmtVnd(x.ws.reduce((a, k) => a + k.thuNo, 0)) || '0'}</td>
+                <td className="num">{fmtVnd(x.chi) || '0'}</td>
+                <td className={`num ${x.net < 0 ? 'neg' : ''}`}>{x.ws.length ? fmtVnd(x.net) || '0' : '—'}</td>
+                <td className={`num ${x.close != null && x.close < quy ? 'neg' : ''}`}>
+                  <b>{x.close == null ? '—' : fmtVnd(x.close) || '0'}</b>
+                  {Math.abs(x.adj || 0) >= 1 && <i className="note" title="Có tuần nhập tiền mặt đầu kỳ thực tế trong tháng"> gồm điều chỉnh về số thật {x.adj > 0 ? '+' : ''}{fmtVnd(x.adj)}</i>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </>
+  )
+}
+
+/* =====================================================================
+   TAB "VỐN LƯU ĐỘNG" — chu kỳ tiền mặt CCC = DIO + DSO − DPO.
+   Cách tính ở src/lib/fin.js → workingCapital(). Mỗi lần mở tab ghi đè ảnh
+   chụp của THÁNG HIỆN TẠI (bảng wc_snapshot) — tháng đã qua giữ nguyên, nên
+   lịch sử CCC tích luỹ dần từ nay. Không nội suy quá khứ.
+   ===================================================================== */
+function VonLuuDong({ setMsg }) {
+  const [ar, setAr] = useState(arFile)
+  const [snap, setSnap] = useState({ ok: null, rows: [] })
+  useEffect(() => {
+    fetchSales().then(setAr).catch(() => {})
+    fetchWcSnapshots().then(setSnap).catch(() => setSnap({ ok: false, rows: [] }))
+  }, [])
+  const W = useMemo(() => workingCapital(ar), [ar])
+  const hist = useMemo(() => arHistory(ar), [ar])
+
+  /* ghi ảnh chụp tháng hiện tại (chỉ khi bảng đã có và số đủ) */
+  useEffect(() => {
+    if (!snap.ok || W.ccc == null) return
+    const ym = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 7)
+    const data = {
+      inv: Math.round(W.inv), ar: W.arNgoai, ap: W.ap, cogs90: Math.round(W.cogs90), revSan: W.revSan,
+      credit: W.credit.gross, dio: W.dio, dso: W.dso, dsoNgoai: W.dsoNgoai, dpo: W.dpo, ccc: W.ccc,
+      nwc: Math.round(W.nwc), qtyNoCost: W.qtyNoCost,
+    }
+    const cu = snap.rows.find(r => r.ym === ym)
+    if (cu && Math.round(cu.data?.ccc * 10) === Math.round(W.ccc * 10) && cu.as_of === W.asOf) return
+    saveWcSnapshot(ym, W.asOf, data)
+      .then(() => fetchWcSnapshots().then(setSnap))
+      .catch(e => setMsg({ t: 'warn', s: `Không ghi được ảnh chụp vốn lưu động tháng này: ${e.message}` }))
+  }, [snap.ok, W])
+
+  const day = v => (v == null ? '—' : `${num(v, 0)} ngày`)
+  const khau = [
+    ['dio', 'Tồn kho (DIO)', W.dio, W.perDay.dio, C.amber],
+    ['dso', 'Phải thu (DSO)', W.dso, W.perDay.dso, C.blue],
+    ['dpo', 'Phải trả (DPO)', W.dpo, W.perDay.dpo, C.good],
+  ]
+  const lon = [khau[0], khau[1]].filter(k => k[2] != null).sort((a, b) => b[2] - a[2])[0]
+  const maxD = Math.max(1, ...khau.map(k => k[2] || 0))
+  const covShare = W.qty > 0 ? W.qtyNoCost / W.qty : 0
+  const trend = (() => {
+    const by = Object.fromEntries(hist.map(h => [h.ym, { ym: h.ym, dsoNgoai: h.dso }]))
+    for (const r of snap.rows) by[r.ym] = { ...(by[r.ym] || { ym: r.ym }), ccc: r.data?.ccc, dio: r.data?.dio, dpo: r.data?.dpo }
+    return Object.values(by).sort((a, b) => a.ym.localeCompare(b.ym)).map(x => ({ ...x, lb: ymTxt(x.ym) }))
+  })()
+
+  return (
+    <>
+      <div className="cf-ccc">
+        <div className="big">
+          <span>Chu kỳ chuyển đổi tiền mặt (CCC)</span>
+          <b>{day(W.ccc)}</b>
+          <small>DIO {num(W.dio, 0)} + DSO {num(W.dso, 0)} − DPO {num(W.dpo, 0)} · tính ngày {W.asOf.split('-').reverse().join('/')}, cửa sổ 90 ngày</small>
+          <p>Số ngày tiền bị "giam" từ lúc trả nhà cung cấp đến lúc thu được tiền khách. Càng ngắn càng tốt.</p>
+        </div>
+        <div className="bars">
+          {khau.map(([id, lb, v, , col]) => (
+            <div key={id}><span>{lb}</span><i><em style={{ width: `${((v || 0) / maxD) * 100}%`, background: col }} /></i><b>{day(v)}</b></div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mk-kpis cf-kpis cf-kpis4">
+        <div className="mk-kpi amber"><span className="k">Giá trị tồn</span><strong>{trieu(W.inv, 1)}<em>tr</em></strong>
+          <span className="sub">{W.qtyNoCost ? `⚠ ${W.noCost.length} SKU thiếu giá vốn = ${num(covShare * 100, 0)}% SL tồn — đang thấp hơn thật` : 'theo giá vốn, gồm kho lưu trữ'}</span></div>
+        <div className="mk-kpi"><span className="k">Phải thu</span><strong>{trieu(W.arNgoai, 1)}<em>tr</em></strong><span className="sub">khách ngoài sàn, có VAT · chưa gồm tiền Shopee chờ giải ngân</span></div>
+        <div className="mk-kpi"><span className="k">Phải trả NCC</span><strong>{trieu(W.ap, 1)}<em>tr</em></strong><span className="sub">số khai từ kế toán ngày {W.apAsOf ? W.apAsOf.split('-').reverse().join('/') : '—'}</span></div>
+        <div className={`mk-kpi ${W.nwc > 0 ? '' : 'good'}`}><span className="k">Vốn lưu động ròng</span><strong>{trieu(W.nwc, 1)}<em>tr</em></strong><span className="sub">tồn + phải thu − phải trả</span></div>
+      </div>
+
+      {lon && (
+        <div className="mk-verdict grey">
+          <b>Vậy thì sao</b>
+          <p>
+            Khâu giam tiền lâu nhất là <strong>{lon[0] === 'dio' ? 'tồn kho' : 'phải thu'} ({lon[0].toUpperCase()}): {num(lon[2], 0)} ngày</strong>. Rút 1 ngày ở khâu này giải
+            phóng khoảng <strong>{trieu(lon[3], 1)} tr</strong> tiền mặt ({lon[0] === 'dio' ? 'giá vốn bình quân 1 ngày' : 'doanh thu bình quân 1 ngày'});
+            rút 10 ngày ≈ {trieu(lon[3] * 10, 0)} tr. Kéo dài thời hạn trả nhà cung cấp thêm 1 ngày cũng giải phóng {trieu(W.perDay.dpo, 1)} tr.
+          </p>
+        </div>
+      )}
+
+      <section className="m2-panel">
+        <div className="m2-head"><h3>Từng chỉ số lấy từ đâu</h3><span>Bấm vào đây để kiểm lại: tử số, mẫu số và độ phủ dữ liệu</span></div>
+        <table className="cf-ref">
+          <thead><tr><th>Chỉ số</th><th className="num">Tử số</th><th className="num">Mẫu số (90 ngày)</th><th className="num">Kết quả</th><th>Ghi chú</th></tr></thead>
+          <tbody>
+            <tr><td><b>DIO</b></td><td className="num">tồn {fmtVnd(W.inv)}</td><td className="num">giá vốn {fmtVnd(W.cogs90)}</td><td className="num">{day(W.dio)}</td>
+              <td className="sm">Giá vốn = Shopee {trieu(W.cogsSan, 1)} tr + ngoài sàn {trieu(W.cogsNgoai, 1)} tr. Tồn tính trên {W.skuStock - W.noCost.length}/{W.skuStock} SKU có tồn{W.noCost.length ? ` — thiếu giá vốn: ${W.noCost.slice(0, 6).join(', ')}${W.noCost.length > 6 ? '…' : ''}` : ''}.</td></tr>
+            <tr><td><b>DSO toàn công ty</b></td><td className="num">phải thu {fmtVnd(W.arNgoai)}</td><td className="num">DT {fmtVnd(W.revSan + W.credit.gross)}</td><td className="num">{day(W.dso)}</td>
+              <td className="sm">Mẫu số = doanh thu Shopee {trieu(W.revSan, 1)} tr + bán chịu có VAT {trieu(W.credit.gross, 1)} tr. <b>Chưa tính tiền Shopee chờ giải ngân</b> (app chưa có số) → DSO đang thấp hơn thật.</td></tr>
+            <tr><td><b>DSO ngoài sàn</b></td><td className="num">phải thu {fmtVnd(W.arNgoai)}</td><td className="num">bán chịu {fmtVnd(W.credit.gross)}</td><td className="num">{day(W.dsoNgoai)}</td>
+              <td className="sm">Chỉ khách đại lý — so với thời hạn công nợ đã cho khách. Cùng số "còn phải thu" ở tab Theo khách hàng.</td></tr>
+            <tr><td><b>DPO</b></td><td className="num">phải trả {fmtVnd(W.ap)}</td><td className="num">giá vốn {fmtVnd(W.cogs90)}</td><td className="num">{day(W.dpo)}</td>
+              <td className="sm">Mẫu số dùng giá vốn (tiền mua hàng theo ngày chưa đáng tin: PO trong Master Data chưa cập nhật thanh toán).</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section className="m2-panel">
+        <div className="m2-head">
+          <h3>Xu hướng</h3>
+          <span>
+            DSO ngoài sàn dựng lại được từ ngày phiếu và ngày thu tiền. CCC/DIO/DPO chỉ có từ khi bắt đầu chụp
+            ({snap.ok ? `${snap.rows.length} tháng đã chụp` : 'bảng wc_snapshot chưa tạo — chưa chụp'}) — không nội suy quá khứ.
+          </span>
+        </div>
+        <ResponsiveContainer width="100%" height={230}>
+          <ComposedChart data={trend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke={C.grid} vertical={false} />
+            <XAxis dataKey="lb" tick={{ fontSize: 10, fill: C.axis }} />
+            <YAxis tick={{ fontSize: 10, fill: C.axis }} width={40} unit="d" />
+            <Tooltip formatter={(v, n) => [v == null ? '—' : `${num(v, 0)} ngày`, n]} />
+            <Legend verticalAlign="top" align="left" height={26} iconSize={10} wrapperStyle={{ fontSize: 10.5 }} />
+            <Line dataKey="dsoNgoai" name="DSO ngoài sàn" stroke={C.blue} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
+            <Line dataKey="ccc" name="CCC" stroke={C.navy} strokeWidth={2.2} dot={{ r: 4 }} />
+            <Line dataKey="dio" name="DIO" stroke={C.amber} dot={{ r: 3 }} />
+            <Line dataKey="dpo" name="DPO" stroke={C.good} dot={{ r: 3 }} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </section>
+    </>
+  )
+}
