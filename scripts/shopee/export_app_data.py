@@ -168,6 +168,34 @@ def main():
                                  max(create_time at time zone 'Asia/Ho_Chi_Minh')::date b,
                                  count(*) n from shopee.raw_order""")[0]
 
+        # ---- Đơn Shopee ở cấp ĐƠN, chỉ để THEO DÕI trong màn Bán hàng ----
+        # KHÔNG đưa vào bảng ar_*: ar_order/ar_delivery là mô hình công nợ khách
+        # sỉ. Nạp đơn Shopee vào đó sẽ trừ kho HAI LẦN (PXK_AFTER_BASE đã trừ từ
+        # dòng phiếu xuất, còn SOLD_SHOPEE_AFTER đã trừ từ dữ liệu Shopee) và
+        # đếm đôi doanh thu (fin.js dựng doanh thu từ deliveryLines).
+        # Đây là bản GƯƠNG chỉ-đọc, không tham gia phép tính nào.
+        # Giữ 180 ngày: đủ theo dõi mà file vẫn nhẹ (~390 đơn).
+        # KHÔNG xuất buyer_username: trang này CÔNG KHAI, tên tài khoản người mua
+        # là dữ liệu cá nhân của khách, không được đẩy lên. Cũng bỏ item_name /
+        # model_name vì tra được từ Master Data theo SKU — giữ lại chỉ tổ phình
+        # file (~198KB) mà không thêm thông tin nào.
+        sp_o = rd(cur, """
+            select o.order_sn, o.order_date::text d, o.order_status status,
+                   o.payment_method pay, o.cancel_reason ly_do_huy,
+                   coalesce(o.buyer_total_amount,0)::float8 tien
+            from shopee.stg_order o
+            where o.order_date > current_date - 180
+            order by o.order_date desc, o.order_sn""")
+        sp_l = rd(cur, """
+            select i.order_sn, i.sku,
+                   i.qty::int sl, i.qty_cancelled::int sl_huy,
+                   i.qty_returned::int sl_hoan, i.qty_net::int sl_thuan,
+                   i.price_paid::float8 gia
+            from shopee.stg_order_item i
+            where i.order_date > current_date - 180
+            order by i.order_sn, i.sku""")
+
+
     months = sorted({r['ym'].replace('-', '.') for r in m})
     mi = {v: i for i, v in enumerate(months)}
     # Phải ghi kèm múi giờ +07:00. Trước đây ghi giờ máy không có múi: chạy trên
@@ -246,6 +274,8 @@ def main():
                           'Phiếu xuất 0 đồng (hàng mẫu, chiết khấu 100%) không tạo khoản phải thu.')},
         'customers': ar_c, 'deliveries': ar_d, 'payments': ar_p, 'plans': ar_pl,
         'deliveryLines': ar_dl, 'orders': ar_o, 'orderLines': ar_ol, 'suppliersExtra': sup_x,
+        # gương Shopee — chỉ đọc, KHÔNG tham gia phép tính công nợ/doanh thu/tồn nào
+        'shopeeOrders': sp_o, 'shopeeLines': sp_l,
         'congTy': {
             'ten': 'CÔNG TY TNHH SẢN XUẤT VÀ THƯƠNG MẠI SLEEP EXPERT',
             'mst': '0318787420',

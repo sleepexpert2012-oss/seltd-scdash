@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import arFile from '../data/receivable.json'
 import { num } from '../lib/format'
+import { SKU_MAP, BASE_AS_OF } from '../lib/metrics'
 import { Money, SkuPick, vnd, today, tenNgan } from '../lib/formbits'
 import { fetchSales, saveOrder, delOrder, addPayment, delPayment, deviceName } from '../lib/cloud'
 import './sales.css'
@@ -16,7 +17,23 @@ import './sales.css'
 const TABS = [
   ['don', '▤', 'Đơn hàng'],
   ['thu', '₫', 'Thanh toán'],
+  ['shopee', '◰', 'Đơn Shopee'],
 ]
+
+/* Gương đơn Shopee — CHỈ ĐỌC.
+   Shopee đã là một hệ thống bán hàng hoàn chỉnh: tiền về qua escrow, kho do
+   Shopee trừ, doanh thu app lấy thẳng từ API. Nạp các đơn này vào bảng ar_*
+   sẽ trừ kho hai lần và đếm đôi doanh thu. Nên ở đây chỉ HIỂN THỊ để theo dõi
+   một chỗ, không ghi, không tham gia phép tính công nợ nào. */
+const ST = {
+  COMPLETED: ['Hoàn tất', 'ok'],
+  SHIPPED: ['Đang giao', 'ship'],
+  TO_RETURN: ['Khách trả về', 'ret'],
+  CANCELLED: ['Đã huỷ', 'can'],
+  UNPAID: ['Chưa trả tiền', 'wait'],
+  READY_TO_SHIP: ['Chờ lấy hàng', 'wait'],
+  PROCESSED: ['Đã xử lý', 'wait'],
+}
 
 export default function Sales() {
   const [tab, setTab] = useState('don')
@@ -84,8 +101,8 @@ export default function Sales() {
           {TABS.map(([id, ic, lb]) => (
             <button key={id} className={tab === id ? 'on' : ''} onClick={() => { setTab(id); setForm(null) }}>
               <span className="ic" aria-hidden>{ic}</span>{lb}
-              <em>{id === 'pxk' ? db.deliveries.length : id === 'don' ? db.orders.length
-                : db.payments.length}</em>
+              <em>{id === 'shopee' ? (arFile.shopeeOrders || []).length
+                : id === 'don' ? db.orders.length : db.payments.length}</em>
             </button>
           ))}
         </div>
@@ -103,12 +120,130 @@ export default function Sales() {
           onSave={(p, lines) => lam(() => saveOrder(p, lines), `Đã lưu đơn ${p.code}.`)}
           onDel={code => lam(() => delOrder(code), `Đã xoá đơn ${code}.`)} />
       )}
+      {tab === 'shopee' && <ShopeeTab />}
       {tab === 'thu' && (
         <ThuTab db={db} custName={custName} form={form} setForm={setForm} busy={busy}
           onSave={p => lam(() => addPayment(p.cust, p.d, p.amount, p.note), 'Đã ghi nhận thanh toán.')}
           onDel={id => lam(() => delPayment(id), 'Đã xoá khoản thanh toán.')} />
       )}
     </div>
+  )
+}
+
+/* ================= ĐƠN SHOPEE (chỉ đọc) ================= */
+function ShopeeTab() {
+  const [q, setQ] = useState('')
+  const [st, setSt] = useState('')
+  const [n, setN] = useState(60)
+
+  const d = useMemo(() => {
+    const donAll = arFile.shopeeOrders || []
+    const lines = arFile.shopeeLines || []
+    const byOrder = {}
+    for (const l of lines) (byOrder[l.order_sn] = byOrder[l.order_sn] || []).push(l)
+    const k = q.trim().toLowerCase()
+    const rows = donAll
+      .filter(o => !st || o.status === st)
+      .filter(o => !k || o.order_sn.toLowerCase().includes(k)
+        || (byOrder[o.order_sn] || []).some(l =>
+          l.sku.toLowerCase().includes(k)
+          || (SKU_MAP[l.sku]?.name || '').toLowerCase().includes(k)))
+      .map(o => {
+        const ls = byOrder[o.order_sn] || []
+        const thuan = ls.reduce((a, l) => a + (l.sl_thuan || 0), 0)
+        return { ...o, lines: ls, thuan, truKho: !!BASE_AS_OF && o.d > BASE_AS_OF && thuan > 0 }
+      })
+    const dem = {}
+    for (const o of donAll) dem[o.status] = (dem[o.status] || 0) + 1
+    return {
+      rows, dem, tong: donAll.length,
+      sauMoc: rows.filter(r => r.truKho),
+      slSauMoc: rows.filter(r => r.truKho).reduce((a, r) => a + r.thuan, 0),
+    }
+  }, [q, st])
+
+  return (
+    <>
+      <div className="sl-warn soft">
+        <b>Bảng này chỉ để xem — app không ghi gì vào đây</b>
+        <p>
+          Đơn Shopee đã được hệ thống xử lý trọn vẹn: tiền về qua escrow, doanh thu lấy
+          thẳng từ API, và <b>tồn kho đã tự trừ</b> cho mọi đơn có ngày đặt sau mốc kiểm kho
+          {BASE_AS_OF ? ` ${BASE_AS_OF}` : ''}. Nếu tạo lại các đơn này ở tab “Đơn hàng” thì
+          hàng bị trừ hai lần và doanh thu bị đếm đôi — tab Đơn hàng chỉ dành cho khách sỉ
+          và đại lý, nơi Shopee không biết tới.
+        </p>
+      </div>
+
+      <div className="sl-sum">
+        <div><span>Đơn 180 ngày gần nhất</span><b>{num(d.tong)}</b></div>
+        <div><span>Đã trừ kho sau mốc kiểm</span><b>{num(d.sauMoc.length)}</b>
+          <i>{num(d.slSauMoc)} sản phẩm</i></div>
+        {Object.entries(ST).filter(([k]) => d.dem[k]).map(([k, [lb, cls]]) => (
+          <div key={k}><span>{lb}</span><b className={`st-${cls}`}>{num(d.dem[k])}</b></div>
+        ))}
+      </div>
+
+      <div className="sl-filter">
+        <input value={q} onChange={e => setQ(e.target.value)}
+          placeholder="Tìm mã đơn, SKU hoặc tên sản phẩm…" />
+        <select value={st} onChange={e => setSt(e.target.value)}>
+          <option value="">Mọi trạng thái</option>
+          {Object.entries(ST).filter(([k]) => d.dem[k])
+            .map(([k, [lb]]) => <option key={k} value={k}>{lb} ({d.dem[k]})</option>)}
+        </select>
+        <span className="sl-count">{d.rows.length} đơn khớp</span>
+      </div>
+
+      <div className="m2-tablewrap">
+        <table className="sl-tb sp-tb">
+          <thead>
+            <tr>
+              <th>Ngày</th><th>Mã đơn</th><th>Trạng thái</th><th>Sản phẩm</th>
+              <th className="num">Đặt</th><th className="num">Huỷ</th><th className="num">Hoàn</th>
+              <th className="num">Thuần</th><th className="num">Tiền khách trả</th><th>Trừ kho</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.rows.slice(0, n).map(o => {
+              const [lb, cls] = ST[o.status] || [o.status, 'wait']
+              return (
+                <tr key={o.order_sn} className={o.status === 'CANCELLED' ? 'huy' : ''}>
+                  <td className="mono">{o.d}</td>
+                  <td className="mono sm">{o.order_sn}</td>
+                  <td><span className={`sp-st st-${cls}`}>{lb}</span>
+                    {o.ly_do_huy ? <i className="note">{o.ly_do_huy}</i> : null}</td>
+                  <td className="sm">
+                    {o.lines.map(l => (
+                      <div key={l.sku + l.order_sn}>
+                        <b>{SKU_MAP[l.sku]?.name || l.sku}</b>
+                        <i className="note">{l.sku}</i>
+                      </div>
+                    ))}
+                  </td>
+                  <td className="num">{o.lines.reduce((a, l) => a + l.sl, 0)}</td>
+                  <td className="num">{o.lines.reduce((a, l) => a + l.sl_huy, 0) || '—'}</td>
+                  <td className="num">{o.lines.reduce((a, l) => a + l.sl_hoan, 0) || '—'}</td>
+                  <td className="num b">{o.thuan || '—'}</td>
+                  <td className="num">{vnd(o.tien)}</td>
+                  <td>{o.truKho
+                    ? <span className="sp-st st-ok">đã trừ</span>
+                    : <span className="dim">{o.thuan ? 'trước mốc' : '—'}</span>}</td>
+                </tr>
+              )
+            })}
+            {!d.rows.length && (
+              <tr><td colSpan={10} className="sl-empty">Không có đơn nào khớp.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {d.rows.length > n && (
+        <div className="sl-more">
+          <button onClick={() => setN(n + 60)}>Xem thêm 60 đơn ({d.rows.length - n} còn lại)</button>
+        </div>
+      )}
+    </>
   )
 }
 
