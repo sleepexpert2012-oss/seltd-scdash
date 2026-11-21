@@ -84,7 +84,11 @@ export default function Stock({ filters, setFilters }) {
     const byBrand = dim(r => r.brand).slice(0, 12)
 
     const whTotals = {}
-    for (const w of WAREHOUSES) whTotals[w.code] = rows.reduce((a, r) => a + (r.byWh[w.code] || 0), 0)
+    const whValue = {}
+    for (const w of WAREHOUSES) {
+      whTotals[w.code] = rows.reduce((a, r) => a + (r.byWh[w.code] || 0), 0)
+      whValue[w.code] = rows.reduce((a, r) => a + (r.byWh[w.code] || 0) * r.cost, 0)
+    }
 
     const asOf = new Date(STOCK_AS_OF_DATE)
     /* Tuổi tồn gắn thẳng vào từng dòng để bảng "Chi tiết loại hình & SKU" dùng
@@ -112,7 +116,7 @@ export default function Stock({ filters, setFilters }) {
 
     const needRows = rows.filter(r => r.need > 0)
     return {
-      rows, byStatus, byNganh, byBrand, whTotals, aged, AGE_BANDS, needRows,
+      rows, byStatus, byNganh, byBrand, whTotals, whValue, aged, AGE_BANDS, needRows,
       ton: rows.reduce((a, r) => a + r.ton, 0),
       value: rows.reduce((a, r) => a + r.value, 0),
       need: needRows.reduce((a, r) => a + r.need, 0),
@@ -207,14 +211,38 @@ export default function Stock({ filters, setFilters }) {
         </div>
       )}
 
-      <div className="m2-kpis" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>
-        <div><span>Tồn TỔNG</span><strong>{num(d.ton)}</strong><small>unit · {d.rows.length} SKU</small></div>
-        <div><span>Giá vốn tồn kho</span><strong>{trieu(d.value)}</strong><small>triệu · đồng vốn đọng</small></div>
-        <div><span>Kho tổng</span><strong>{num(d.whTotals[salesWh[0]?.code] || 0)}</strong><small>{salesWh[0]?.name}</small></div>
-        <div><span>Cửa hàng</span><strong>{num(storeTon)}</strong><small>{salesWh.slice(1).map(w => w.name).join(' · ')}</small></div>
-        <div><span>Kho lưu trữ</span><strong>{num(otherTon)}</strong>
-          <small>hàng lỗi / chưa xử lý — <b>không</b> tính vào tồn khả dụng</small></div>
+      {/* Mỗi thẻ nói GIÁ VỐN trước rồi mới tới số unit — tiền đọng mới là thứ cần
+          quyết, số lượng chỉ để biết quy mô. Giá vốn GỒM cả kho lưu trữ (hàng
+          trưng bày / hàng lỗi vẫn là tiền đã bỏ ra), còn "tồn khả dụng" thì không. */}
+      <div className="m2-kpis stk-kpis">
+        <div className="tong">
+          <span>Tồn tổng · giá vốn</span>
+          <strong>{trieu(d.value)}<em>triệu</em></strong>
+          <small>{num(d.ton + otherTon)} unit · {d.rows.length} SKU — trong đó {num(d.ton)} bán
+            được, {num(otherTon)} ở kho lưu trữ</small>
+        </div>
+        {WAREHOUSES.map(w => (
+          <div key={w.code} className={w.type === 'Kho bán hàng' ? '' : 'luu-tru'}>
+            <span>{w.name}</span>
+            <strong>{trieu(d.whValue[w.code] || 0)}<em>triệu</em></strong>
+            <small>
+              {num(d.whTotals[w.code] || 0)} unit
+              {w.type === 'Kho bán hàng' ? '' : ' · hàng lỗi/trưng bày, không tính vào tồn khả dụng'}
+            </small>
+          </div>
+        ))}
       </div>
+      {/* Thẻ theo kho là số KIỂM KHO: hàng bán sau mốc không biết đi ra từ kho nào
+          (Shopee không trả kho xuất), nên không phân bổ bừa — nói thẳng chênh lệch. */}
+      {d.ton + otherTon !== WAREHOUSES.reduce((a, w) => a + (d.whTotals[w.code] || 0), 0) && (
+        <p className="stk-note">
+          Thẻ theo từng kho là số tại lần kiểm kho {BASE_AS_OF} (tổng{' '}
+          {num(WAREHOUSES.reduce((a, w) => a + (d.whTotals[w.code] || 0), 0))} unit ·{' '}
+          {trieu(WAREHOUSES.reduce((a, w) => a + (d.whValue[w.code] || 0), 0))} triệu). Chênh với
+          thẻ Tồn tổng đúng bằng phần đã bán sau mốc — Shopee không cho biết hàng đi ra từ kho
+          nào nên không phân bổ về kho.
+        </p>
+      )}
 
       <div className="stt-row">
         {d.byStatus.map(s => (
