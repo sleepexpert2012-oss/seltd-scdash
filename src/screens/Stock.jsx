@@ -137,7 +137,19 @@ export default function Stock({ filters, setFilters }) {
   const otherTon = WAREHOUSES.filter(w => w.type !== 'Kho bán hàng').reduce((a, w) => a + (d.whTotals[w.code] || 0), 0)
 
   return (
-    <>
+    <div className="stk-page">
+      {/* Chỉ hiện khi IN: thanh tiêu đề của app bị ẩn lúc in nên tờ giấy phải tự
+          khai đang là báo cáo gì, lọc theo gì, số chốt tại thời điểm nào. */}
+      <div className="stk-print-head">
+        <h1>Báo cáo chi tiết tồn kho theo loại hình &amp; SKU</h1>
+        <p>
+          CÔNG TY TNHH SẢN XUẤT VÀ THƯƠNG MẠI SLEEP EXPERT · Phòng Supply Chain<br />
+          Tồn theo kiểm kho ngày <b>{BASE_AS_OF}</b>, đã trừ hàng bán sau mốc ·
+          {' '}{filters.nganh ? `Ngành: ${filters.nganh}` : 'Tất cả ngành hàng'} ·
+          {' '}{filters.supplier ? `NCC: ${filters.supplier}` : 'Tất cả nhà cung cấp'} ·
+          {' '}In ngày {new Date().toLocaleDateString('vi-VN')}
+        </p>
+      </div>
       <div className="scope-bar">
         INVENTORY PLANNING · {WAREHOUSES.length} KHO: {WAREHOUSES.map(w => w.name).join(' · ')} ·
         TỒN {STOCK_AS_OF} · DỰ BÁO THEO LỊCH SỬ + MÙA VỤ · SERVICE LEVEL 99%
@@ -368,7 +380,7 @@ export default function Stock({ filters, setFilters }) {
 
       {tab === 'phantom' && <PhantomPanel />}
       {tab === 'setting' && <SettingPanel onChange={() => setTick(t => t + 1)} rows={d.rows} />}
-    </>
+    </div>
   )
 }
 

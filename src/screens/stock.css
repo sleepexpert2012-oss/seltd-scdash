@@ -416,3 +416,75 @@
   margin: -4px 0 14px; font-size: 10.5px; line-height: 1.55; color: var(--muted);
   border-left: 2px solid var(--line); padding-left: 9px;
 }
+
+/* ============================================================
+   IN BÁO CÁO — bảng Chi tiết loại hình & SKU
+   Khổ A4 NGANG: 16 cột không thể nhét vừa khổ dọc. Vùng in sau lề 10mm là
+   277mm ≈ 1047px, nên mọi thứ phải co về dưới mức đó.
+   ============================================================ */
+@page { size: A4 landscape; margin: 10mm 10mm 14mm; }
+
+@media print {
+  /* 1. Bỏ mọi thứ chỉ dùng để thao tác trên màn hình */
+  .stk-page .m2-tabs, .stk-page .m2-filter, .stk-page .scope-bar,
+  .stk-page .group-ctrl, .stk-page .age-grid, .stk-page .tools,
+  .stk-page .xls-btn, .stk-page .link-btn, .stk-page .ph-banner { display: none !important; }
+
+  /* 2. Tiêu đề in: thanh trên bị ẩn nên phải tự khai đang in cái gì */
+  .stk-print-head { display: block !important; }
+
+  /* 3. Khung bảng: bỏ cuộn, bỏ chiều cao trần, bỏ chiều rộng tối thiểu */
+  .stk-page .m2-tablewrap, .stk-page .m2-tablewrap.tall {
+    max-height: none !important; overflow: visible !important;
+    border: 0 !important; border-radius: 0 !important;
+  }
+  .stk-page .m2-tablewrap table, .stk-page .m2-tablewrap.tall table {
+    min-width: 0 !important; width: 100% !important; font-size: 7.2px !important;
+    table-layout: fixed;
+  }
+
+  /* 4. Ô ghim phải trở lại bình thường — position:sticky khi in sẽ đè lên nội
+        dung trang hoặc biến mất hẳn tuỳ trình duyệt */
+  .stk-page th, .stk-page td,
+  .stk-page .m2-tablewrap.tall th:first-child,
+  .stk-page .m2-tablewrap.tall td:first-child,
+  .cf-tb th.lbl, .cf-tb td.lbl {
+    position: static !important; box-shadow: none !important;
+  }
+  .stk-page .m2-tablewrap.tall th:first-child::after,
+  .stk-page .m2-tablewrap.tall td:first-child::after { display: none !important; }
+
+  /* 5. Lặp lại hàng tiêu đề ở MỌI trang giấy, và không cắt đôi một dòng */
+  .stk-page thead { display: table-header-group !important; }
+  .stk-page tfoot { display: table-footer-group !important; }
+  .stk-page tr { break-inside: avoid !important; page-break-inside: avoid !important; }
+  .stk-page tr.grp { break-after: avoid !important; }   /* tên loại hình không đứng cuối trang một mình */
+
+  /* 6. Co các ô cho vừa 16 cột */
+  /* Tiêu đề cột và nhãn trạng thái phải được xuống dòng: để nowrap thì chữ dài
+     hơn ô 54px và tràn sang cột bên cạnh khi in. */
+  .stk-page th {
+    padding: 4px 3px !important; font-size: 6.4px !important;
+    letter-spacing: 0 !important; white-space: normal !important; word-break: break-word;
+  }
+  .stk-page td.lbl, .stk-page .pri { white-space: normal !important; }
+  .stk-page td { padding: 3px !important; }
+  .stk-page td.nm-cell, .stk-page th:first-child { width: 17% !important; }
+  .stk-page .m2-tablewrap td.nm-cell { min-width: 0 !important; }
+  .stk-page .nm-top > b { font-size: 7.4px !important; }
+  .stk-page td.nm-cell small { font-size: 6.2px !important; }
+  .stk-page .m2-tablewrap th.wh-col i { font-size: 5.6px !important; max-width: none !important; }
+  .stk-page .age-pill { padding: 0 3px !important; font-size: 6.6px !important; }
+  .stk-page .age-pill i { display: none !important; }   /* bỏ chữ "ngày", đầu cột đã ghi */
+  .stk-page .pri { font-size: 6.4px !important; padding: 0 3px !important; }
+  .stk-page .nm-top .drill-btn { display: none !important; }
+
+  /* 7. Panel không đổ bóng, không chẻ giữa trang */
+  .stk-page .m2-panel { box-shadow: none !important; border: 0 !important; padding: 0 !important; }
+  .stk-page .m2-panel > .m2-head { break-after: avoid !important; }
+}
+
+/* Tiêu đề chỉ hiện khi in */
+.stk-print-head { display: none; }
+.stk-print-head h1 { font-size: 13px; font-weight: 750; color: var(--ink); margin: 0 0 2px; }
+.stk-print-head p { margin: 0 0 8px; font-size: 8.5px; color: var(--muted); line-height: 1.5; }

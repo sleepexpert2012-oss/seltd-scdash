@@ -245,7 +245,10 @@
 
 /* ---------- In ấn ---------- */
 @media print{
-  .sidebar,.topbar-actions,.burger,.preset-row,.nav-scrim,.strip-foot{display:none!important}
+  /* Thanh lọc và dải xu hướng là công cụ thao tác trên màn hình — in ra chỉ tốn
+     nửa trang giấy đầu và đẩy tiêu đề báo cáo xuống giữa trang. */
+  .sidebar,.topbar-actions,.burger,.preset-row,.nav-scrim,.strip-foot,
+  .filters,.filter-grid,.trend-row{display:none!important}
   .main{margin-left:0}
   .topbar{position:static!important;height:auto!important;padding:0 0 8px!important;margin-bottom:8px!important}
   .filters,.page-wrap{padding:0!important}
